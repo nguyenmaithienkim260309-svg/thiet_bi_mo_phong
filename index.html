@@ -1,0 +1,3574 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>AURA EIS · Máy đo trở kháng da 3D</title>
+<meta name="description" content="Mô phỏng 3D thiết bị EIS đeo tay AURA: hộp lưu động, bút đầu dò 2 chấu pogo (J2), quét trở kháng 1–100 kHz và so sánh RMSE.">
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#06110d;
+  --bg-deep:#030a08;
+  --panel:rgba(10,25,20,.82);
+  --panel-solid:#0b1a15;
+  --panel-raised:#0e211a;
+  --line:rgba(151,224,194,.13);
+  --line-strong:rgba(151,224,194,.24);
+  --text:#edfaf4;
+  --muted:#89a79a;
+  --faint:#5f7d70;
+  --mint:#5cebb3;
+  --mint-deep:#18b981;
+  --mint-soft:rgba(92,235,179,.11);
+  --cyan:#6ed8ff;
+  --cyan-soft:rgba(110,216,255,.11);
+  --amber:#f4b65f;
+  --amber-soft:rgba(244,182,95,.12);
+  --red:#ff7b7b;
+  --red-soft:rgba(255,123,123,.12);
+  --purple:#8555ac;
+  --radius:22px;
+  --mono:"IBM Plex Mono",ui-monospace,SFMono-Regular,Consolas,monospace;
+  --sans:"Be Vietnam Pro","Segoe UI",system-ui,sans-serif;
+}
+*{box-sizing:border-box}
+html{background:var(--bg-deep)}
+body{
+  margin:0;min-height:100vh;color:var(--text);font-family:var(--sans);
+  background:
+    radial-gradient(900px 680px at 12% 8%,rgba(54,208,158,.13),transparent 64%),
+    radial-gradient(780px 620px at 88% 20%,rgba(63,132,173,.10),transparent 62%),
+    linear-gradient(150deg,#07130f 0%,#050d0a 48%,#06110e 100%);
+  overflow-x:hidden;
+  -webkit-font-smoothing:antialiased;
+}
+body::before{
+  content:"";position:fixed;inset:0;pointer-events:none;z-index:0;
+  background-image:linear-gradient(rgba(142,222,189,.023) 1px,transparent 1px),linear-gradient(90deg,rgba(142,222,189,.023) 1px,transparent 1px);
+  background-size:44px 44px;
+  mask-image:radial-gradient(ellipse at 45% 35%,#000 20%,transparent 78%);
+  -webkit-mask-image:radial-gradient(ellipse at 45% 35%,#000 20%,transparent 78%);
+}
+body::after{
+  content:"";position:fixed;width:620px;height:620px;right:-260px;bottom:-300px;border-radius:50%;
+  background:radial-gradient(circle,rgba(86,235,179,.09),transparent 68%);pointer-events:none;z-index:0;
+}
+button{font-family:inherit}
+button:focus-visible,summary:focus-visible{outline:2px solid var(--mint);outline-offset:3px}
+::selection{background:rgba(92,235,179,.28);color:#fff}
+.aura-app{position:relative;z-index:1;max-width:1800px;margin:0 auto;padding:15px 18px 18px}
+
+/* ---------- header ---------- */
+.aura-header{height:56px;display:flex;align-items:center;justify-content:space-between;gap:16px;padding:0 4px 10px}
+.brand-block{display:flex;align-items:center;gap:12px;min-width:0}
+.brand-mark{
+  width:42px;height:42px;border-radius:14px;flex:none;display:grid;place-items:center;
+  background:linear-gradient(150deg,rgba(92,235,179,.18),rgba(13,44,33,.7));
+  border:1px solid rgba(117,238,191,.3);box-shadow:inset 0 1px 0 rgba(255,255,255,.1),0 10px 30px rgba(0,0,0,.3);
+}
+.brand-mark svg{width:28px;height:28px}
+.brand-copy{min-width:0}
+.brand-eyebrow{font:500 9.5px/1.2 var(--mono);letter-spacing:.18em;color:var(--mint);text-transform:uppercase;white-space:nowrap}
+.brand-eyebrow span{color:var(--faint);margin:0 5px}
+.brand-copy h1{font-size:18px;line-height:1.25;margin:2px 0 0;font-weight:700;letter-spacing:-.02em;white-space:nowrap}
+.version-chip{
+  display:inline-flex;vertical-align:1px;margin-left:7px;padding:2px 7px;border-radius:6px;
+  font:500 9px/1.2 var(--mono);letter-spacing:.1em;color:#b7f7dd;background:rgba(92,235,179,.1);border:1px solid rgba(92,235,179,.2)
+}
+.header-right{display:flex;align-items:center;gap:10px;flex:none}
+.header-meta{display:flex;align-items:center;gap:8px;color:var(--muted);font:500 10.5px/1 var(--mono);letter-spacing:.03em;white-space:nowrap}
+.live-dot{width:6px;height:6px;border-radius:50%;background:var(--mint);box-shadow:0 0 0 4px rgba(92,235,179,.1);animation:livePulse 2.4s ease-in-out infinite}
+@keyframes livePulse{0%,100%{opacity:1;box-shadow:0 0 0 4px rgba(92,235,179,.09)}50%{opacity:.55;box-shadow:0 0 0 7px rgba(92,235,179,.025)}}
+.power-pill,.sim-badge{
+  display:flex;align-items:center;gap:6px;border:1px solid var(--line);background:rgba(10,27,21,.64);
+  color:#b9d6c9;border-radius:999px;padding:7px 10px;font:500 10.5px/1 var(--mono);letter-spacing:.02em;backdrop-filter:blur(12px)
+}
+.sim-badge{color:var(--amber);border-color:rgba(244,182,95,.22);background:rgba(244,182,95,.065);letter-spacing:.1em;font-size:9px}
+.battery-icon{width:15px;height:9px;border:1px solid #8fb9a7;border-radius:2px;position:relative;display:inline-block}
+.battery-icon::after{content:"";position:absolute;right:-3px;top:2px;width:2px;height:4px;background:#8fb9a7;border-radius:0 1px 1px 0}
+.battery-icon::before{content:"";position:absolute;left:1px;top:1px;bottom:1px;width:9px;background:var(--mint);border-radius:1px}
+
+/* ---------- layout ---------- */
+.aura-main{display:grid;grid-template-columns:minmax(0,1.6fr) minmax(370px,.82fr);gap:13px;align-items:stretch}
+.visual-card,.side-panel{
+  height:clamp(610px,calc(100dvh - 100px),940px);
+  border:1px solid var(--line);border-radius:var(--radius);
+  background:linear-gradient(160deg,rgba(13,32,25,.78),rgba(5,14,11,.88));
+  box-shadow:0 24px 70px rgba(0,0,0,.33),inset 0 1px 0 rgba(255,255,255,.035);
+  overflow:hidden;position:relative
+}
+.visual-card::before{
+  content:"";position:absolute;inset:0;z-index:0;pointer-events:none;
+  background:
+    radial-gradient(ellipse 56% 54% at 50% 46%,rgba(65,190,145,.12),transparent 72%),
+    linear-gradient(180deg,rgba(255,255,255,.02),transparent 20%);
+}
+.visual-card::after{
+  content:"";position:absolute;inset:0;pointer-events:none;z-index:1;
+  box-shadow:inset 0 0 120px 16px rgba(2,8,6,.62);border-radius:inherit;
+}
+.stage{position:absolute;inset:0;z-index:1;touch-action:none;overflow:hidden;isolation:isolate}
+.stage canvas{position:absolute;inset:0;width:100%!important;height:100%!important;display:block;cursor:grab;outline:none}
+.stage canvas.is-dragging{cursor:grabbing}
+.stage canvas.is-probe{cursor:pointer}
+
+/* ---------- stage overlays ---------- */
+.stage-top{position:absolute;left:14px;right:14px;top:14px;z-index:5;display:flex;align-items:flex-start;justify-content:space-between;gap:10px;pointer-events:none}
+.stage-top-left{display:flex;flex-direction:column;gap:8px;align-items:flex-start;min-width:0;pointer-events:none}
+.stage-top button{pointer-events:auto}
+.segmented{
+  display:inline-flex;gap:3px;padding:3px;border-radius:12px;border:1px solid var(--line-strong);
+  background:rgba(4,14,10,.72);box-shadow:0 10px 30px rgba(0,0,0,.25);backdrop-filter:blur(18px)
+}
+.seg-btn{
+  appearance:none;border:0;background:transparent;color:var(--muted);font:600 11.5px/1 var(--sans);
+  padding:8px 12px;border-radius:9px;display:flex;align-items:center;gap:6px;cursor:pointer;transition:background .2s,color .2s
+}
+.seg-btn:hover{color:var(--text);background:rgba(255,255,255,.045)}
+.seg-btn.is-active{color:#062018;background:var(--mint);box-shadow:0 4px 18px rgba(70,220,164,.18)}
+.seg-btn .dot{width:5px;height:5px;border-radius:50%;background:currentColor;opacity:.75}
+.case-tabs{
+  display:flex;align-items:center;gap:2px;border-radius:11px;padding:3px;border:1px solid var(--line);
+  background:rgba(4,14,10,.6);backdrop-filter:blur(18px);box-shadow:0 10px 28px rgba(0,0,0,.19);
+  transition:opacity .3s,transform .3s,max-height .3s;max-width:min(660px,68vw);overflow:auto;scrollbar-width:none
+}
+.case-tabs::-webkit-scrollbar{display:none}
+.case-tab{appearance:none;border:0;background:transparent;color:var(--muted);font:500 10.5px/1 var(--sans);padding:7px 10px;border-radius:8px;white-space:nowrap;cursor:pointer;transition:.18s}
+.case-tab:hover{color:var(--text);background:rgba(255,255,255,.045)}
+.case-tab.is-active{color:var(--text);background:rgba(92,235,179,.12);box-shadow:inset 0 0 0 1px rgba(92,235,179,.16)}
+.stage[data-workspace="measure"] .case-tabs{opacity:0;transform:translateY(-5px);pointer-events:none;max-height:0;padding-top:0;padding-bottom:0;border-color:transparent;overflow:hidden}
+.stage-tools{display:flex;gap:6px;align-items:center}
+.tool-btn{
+  appearance:none;height:31px;border:1px solid var(--line);background:rgba(4,14,10,.66);color:var(--muted);
+  border-radius:9px;padding:0 10px;font:500 10px/1 var(--sans);display:flex;align-items:center;gap:6px;cursor:pointer;
+  backdrop-filter:blur(16px);transition:.18s
+}
+.tool-btn svg{width:13px;height:13px;opacity:.8}
+.tool-btn:hover{color:var(--text);border-color:var(--line-strong);background:rgba(16,39,30,.8)}
+.tool-btn.is-active{color:var(--mint);border-color:rgba(92,235,179,.25);background:rgba(92,235,179,.08)}
+
+.measure-badge{
+  position:absolute;z-index:4;top:16px;left:50%;transform:translateX(-50%) translateY(-8px);
+  display:flex;align-items:center;gap:7px;padding:7px 11px;border-radius:999px;
+  border:1px solid rgba(244,182,95,.22);background:rgba(25,20,12,.68);backdrop-filter:blur(15px);
+  color:var(--amber);font:500 9.5px/1 var(--mono);letter-spacing:.08em;text-transform:uppercase;
+  opacity:0;pointer-events:none;transition:.35s
+}
+.stage[data-workspace="measure"] .measure-badge{opacity:1;transform:translateX(-50%) translateY(0)}
+.measure-badge i{width:5px;height:5px;border-radius:50%;background:var(--amber);box-shadow:0 0 8px var(--amber);animation:livePulse 1.6s infinite}
+
+.stage-bottom{position:absolute;left:14px;right:14px;bottom:13px;z-index:4;display:flex;align-items:flex-end;justify-content:space-between;gap:10px;pointer-events:none}
+.stage-hint,.dimension-chip{
+  pointer-events:auto;display:flex;align-items:center;gap:7px;border:1px solid var(--line);border-radius:9px;
+  padding:7px 10px;background:rgba(4,14,10,.62);backdrop-filter:blur(16px);color:var(--muted);
+  font:400 10px/1.2 var(--sans);box-shadow:0 8px 22px rgba(0,0,0,.15);transition:.25s
+}
+.stage-hint svg{width:13px;height:13px;color:var(--faint);flex:none}
+.dimension-chip{font:500 9.5px/1 var(--mono);letter-spacing:.03em;color:#93b6a6}
+.stage[data-workspace="measure"] .dimension-chip{opacity:0;transform:translateY(4px);pointer-events:none}
+.stage[data-workspace="measure"] .stage-hint{border-color:rgba(92,235,179,.2);color:#b5d9c9}
+
+/* component inspector */
+.component-card{
+  position:absolute;z-index:6;left:14px;bottom:51px;width:min(352px,calc(100% - 28px));
+  border:1px solid var(--line-strong);border-radius:15px;padding:12px 13px 12px;
+  background:linear-gradient(155deg,rgba(12,31,24,.94),rgba(5,16,12,.95));
+  box-shadow:0 22px 55px rgba(0,0,0,.4),inset 0 1px 0 rgba(255,255,255,.04);
+  backdrop-filter:blur(22px);
+  opacity:0;transform:translateY(8px) scale(.99);pointer-events:none;transition:opacity .22s,transform .22s
+}
+.component-card.is-open{opacity:1;transform:none;pointer-events:auto}
+.component-card-head{display:flex;justify-content:space-between;gap:10px;align-items:flex-start}
+.component-kicker{font:500 8.5px/1 var(--mono);letter-spacing:.13em;color:var(--mint);text-transform:uppercase;margin-bottom:4px}
+.component-card h3{margin:0;font-size:14px;line-height:1.35;font-weight:600;letter-spacing:-.01em}
+.component-close{appearance:none;border:1px solid var(--line);background:rgba(255,255,255,.025);color:var(--muted);width:23px;height:23px;border-radius:7px;display:grid;place-items:center;cursor:pointer;font-size:15px;line-height:1;flex:none}
+.component-close:hover{color:var(--text);border-color:var(--line-strong)}
+.component-desc{margin:6px 0 8px;color:var(--muted);font-size:10.8px;line-height:1.55}
+.spec-grid{display:grid;grid-template-columns:1fr 1fr;gap:4px 8px}
+.spec{display:flex;flex-direction:column;gap:1px;padding:5px 7px;border-radius:7px;background:rgba(255,255,255,.025);border:1px solid rgba(255,255,255,.035);min-width:0}
+.spec span{font:500 7.8px/1.2 var(--mono);letter-spacing:.05em;color:var(--faint);text-transform:uppercase}
+.spec strong{font:500 9.8px/1.35 var(--sans);color:#cfe8dc;font-weight:500;overflow-wrap:anywhere}
+.component-foot{margin-top:8px;font:400 8.5px/1.4 var(--sans);color:var(--faint);display:flex;align-items:center;gap:5px}
+.component-foot::before{content:"";width:4px;height:4px;border-radius:50%;background:var(--mint);opacity:.6}
+
+/* probe labels anchored in 3D */
+.probe-tag{
+  position:absolute;z-index:6;left:0;top:0;width:225px;padding:9px 10px 8px;border-radius:11px;
+  border:1px solid rgba(156,230,201,.22);background:rgba(4,16,11,.9);backdrop-filter:blur(18px);
+  box-shadow:0 16px 38px rgba(0,0,0,.32);pointer-events:none;opacity:0;transition:opacity .2s;
+  will-change:transform
+}
+.probe-tag::before{content:"";position:absolute;left:-28px;top:44px;width:28px;height:1px;background:linear-gradient(90deg,transparent,rgba(156,230,201,.6))}
+.probe-tag.is-flipped::before{left:auto;right:-28px;background:linear-gradient(90deg,rgba(156,230,201,.6),transparent)}
+.probe-tag.is-detached::before{display:none}
+.probe-tag.is-visible{opacity:1}
+.probe-tag-title{display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;color:#aacdbf;font:500 8px/1 var(--mono);letter-spacing:.12em;text-transform:uppercase}
+.probe-tag-title span{color:var(--mint)}
+.probe-electrodes{display:grid;grid-template-columns:repeat(2,1fr);gap:3px}
+.probe-el{padding:4px 1px 3px;border-radius:5px;text-align:center;background:rgba(255,255,255,.035);border:1px solid rgba(255,255,255,.04)}
+.probe-el b{display:block;font:600 8px/1.1 var(--mono);color:var(--amber)}
+.probe-el.v b{color:var(--cyan)}
+.probe-el small{display:block;margin-top:3px;color:#668477;font:400 6.5px/1 var(--sans)}
+.probe-tag-foot{margin-top:6px;color:#567468;font:400 7.5px/1.25 var(--sans);display:flex;justify-content:space-between;gap:4px}
+
+/* toast */
+.toast{
+  position:absolute;left:50%;bottom:58px;transform:translate(-50%,12px);z-index:20;
+  border:1px solid rgba(92,235,179,.25);background:rgba(6,22,15,.94);color:#d9f7e9;
+  border-radius:10px;padding:9px 13px;font:500 10.5px/1.35 var(--sans);box-shadow:0 16px 40px rgba(0,0,0,.4);
+  opacity:0;pointer-events:none;transition:.25s;max-width:min(390px,calc(100% - 32px));text-align:center;backdrop-filter:blur(16px)
+}
+.toast.is-visible{opacity:1;transform:translate(-50%,0)}
+.toast.warn{border-color:rgba(244,182,95,.3);color:#ffe0b7}
+
+/* webgl fallback */
+.stage-fallback{position:absolute;inset:0;display:none;place-items:center;padding:24px;text-align:center;z-index:3}
+.stage.has-error .stage-fallback{display:grid}
+.stage-fallback div{max-width:380px;border:1px solid var(--line);background:rgba(9,24,18,.9);border-radius:16px;padding:22px}
+.stage-fallback h3{margin:0 0 6px;font-size:15px}
+.stage-fallback p{margin:0;color:var(--muted);font-size:12px;line-height:1.6}
+
+/* ---------- side panel ---------- */
+.side-panel{padding:15px;overflow-y:auto;scrollbar-width:thin;scrollbar-color:rgba(111,170,147,.25) transparent;display:flex;flex-direction:column;gap:10px}
+.side-panel::-webkit-scrollbar{width:5px}.side-panel::-webkit-scrollbar-thumb{background:rgba(111,170,147,.23);border-radius:10px}
+.panel-header{display:flex;align-items:flex-start;justify-content:space-between;gap:10px}
+.panel-kicker{font:500 8.5px/1 var(--mono);letter-spacing:.15em;color:var(--faint);text-transform:uppercase;margin-bottom:4px}
+.panel-header h2{margin:0;font-size:17px;font-weight:650;letter-spacing:-.025em;line-height:1.25}
+.session-badge{display:flex;align-items:center;gap:6px;border-radius:999px;border:1px solid var(--line);padding:6px 9px;color:var(--muted);font:500 9px/1 var(--mono);white-space:nowrap;transition:.2s}
+.session-badge::before{content:"";width:5px;height:5px;border-radius:50%;background:currentColor;opacity:.8}
+.session-badge[data-state="warning"]{color:var(--red);border-color:rgba(255,123,123,.24);background:rgba(255,123,123,.06)}
+.session-badge[data-state="ok"]{color:var(--mint);border-color:rgba(92,235,179,.24);background:rgba(92,235,179,.06)}
+
+.probe-schematic{
+  border:1px solid var(--line);border-radius:13px;padding:10px 11px 9px;
+  background:linear-gradient(150deg,rgba(255,255,255,.027),rgba(255,255,255,.012));
+}
+.schematic-head{display:flex;justify-content:space-between;align-items:center;font:500 8px/1 var(--mono);letter-spacing:.13em;color:var(--faint);text-transform:uppercase}
+.schematic-head span:last-child{letter-spacing:.03em;color:#698b7c}
+.electrode-strip{display:grid;grid-template-columns:repeat(2,1fr);position:relative;margin:14px 2px 9px;isolation:isolate}
+.electrode-strip::before{content:"";position:absolute;left:25%;right:25%;top:10px;height:1px;background:linear-gradient(90deg,rgba(244,182,95,.18),rgba(92,235,179,.3),rgba(110,216,255,.3),rgba(244,182,95,.18));z-index:-1}
+.electrode{display:flex;flex-direction:column;align-items:center;gap:5px;position:relative}
+.electrode b{display:grid;place-items:center;width:22px;height:22px;border-radius:50%;font:600 8px/1 var(--mono);color:#21180a;background:var(--amber);border:3px solid #0d1f18;box-shadow:0 0 0 1px rgba(244,182,95,.3)}
+.electrode.v b{color:#06202a;background:var(--cyan);box-shadow:0 0 0 1px rgba(110,216,255,.3)}
+.electrode span{font:400 7.5px/1.15 var(--sans);color:var(--faint);text-align:center;white-space:nowrap}
+.schematic-note{color:#708e80;font-size:8.8px;line-height:1.4;text-align:center}
+.schematic-note .amber{color:#eeb466}.schematic-note .cyan{color:#7fdcff}.schematic-note .sep{margin:0 4px;color:#395146}
+
+.card-surface{border:1px solid var(--line);border-radius:14px;background:linear-gradient(155deg,rgba(255,255,255,.028),rgba(255,255,255,.009))}
+.chart-card{padding:11px 11px 8px}
+.chart-head{display:flex;justify-content:space-between;align-items:flex-start;gap:8px}
+.card-kicker{font:500 7.8px/1 var(--mono);letter-spacing:.13em;color:var(--faint);text-transform:uppercase}
+.chart-head h3{margin:3px 0 0;font-size:12.5px;font-weight:600;letter-spacing:-.01em}
+.chart-head h3 em{font-style:normal;font-weight:400;color:var(--faint);font-size:9px;margin-left:3px}
+.legend{display:flex;flex-wrap:wrap;justify-content:flex-end;gap:6px 9px;padding-top:2px}
+.legend span{display:flex;align-items:center;gap:4px;color:var(--muted);font-size:8px;white-space:nowrap}
+.legend i{width:12px;height:2px;border-radius:2px;display:inline-block;background:var(--mint)}
+.legend .ref i{background:repeating-linear-gradient(90deg,#6f9483 0 3px,transparent 3px 5px);height:1.5px}
+.legend .lesion i{background:rgba(255,123,123,.8)}
+.chart-wrap{height:182px;position:relative;margin-top:5px}
+.chart-wrap canvas{display:block;width:100%!important;height:100%!important}
+.chart-foot{display:flex;justify-content:space-between;align-items:center;margin-top:1px;color:#49665a;font:500 7px/1 var(--mono);letter-spacing:.04em;padding:0 2px}
+.metrics-row{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}
+.mini-metric{border:1px solid var(--line);border-radius:10px;padding:7px 8px;background:rgba(255,255,255,.018);min-width:0}
+.mini-metric span{display:block;color:var(--faint);font:500 7.3px/1.2 var(--mono);letter-spacing:.06em;text-transform:uppercase;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.mini-metric strong{display:block;margin-top:4px;font:500 14px/1 var(--mono);letter-spacing:-.04em;color:#d8f1e6;font-weight:500;white-space:nowrap}
+.mini-metric strong small{font-size:8px;color:var(--faint);font-weight:400;margin-left:1px}
+.position-presets{display:flex;align-items:center;gap:5px;min-width:0}
+.position-presets > span{font:500 7.4px/1 var(--mono);letter-spacing:.07em;color:var(--faint);text-transform:uppercase;margin-right:1px;white-space:nowrap}
+.workflow-line{display:flex;align-items:center;gap:6px;color:#638174;font:400 8.6px/1.35 var(--sans);padding:0 1px;flex-wrap:wrap}
+.workflow-line b{display:inline-grid;place-items:center;width:13px;height:13px;border-radius:50%;border:1px solid rgba(92,235,179,.25);color:var(--mint);font:500 7px/1 var(--mono)}
+.workflow-line .arrow{color:#3f5b4f}
+.preset-btn{appearance:none;border:1px solid var(--line);background:rgba(255,255,255,.022);color:var(--muted);border-radius:7px;padding:6px 8px;font:500 9px/1 var(--sans);cursor:pointer;transition:.16s;white-space:nowrap}
+.preset-btn:hover{color:var(--text);border-color:var(--line-strong);background:rgba(255,255,255,.045)}
+.preset-btn[data-preset="lesion"]:hover{color:#ffd0c9;border-color:rgba(255,123,123,.25);background:rgba(255,123,123,.065)}
+.preset-btn.is-current{border-color:rgba(92,235,179,.25);color:var(--mint);background:rgba(92,235,179,.07)}
+.action-grid{display:grid;grid-template-columns:1fr 1.18fr;gap:7px;margin-top:1px}
+.btn{appearance:none;border-radius:11px;min-height:42px;padding:0 13px;display:flex;align-items:center;justify-content:center;gap:7px;cursor:pointer;font:600 10.5px/1.2 var(--sans);transition:transform .16s,background .16s,border-color .16s,box-shadow .16s;position:relative;overflow:hidden}
+.btn svg{width:14px;height:14px;flex:none}
+.btn:active{transform:translateY(1px)}
+.btn-secondary{border:1px solid var(--line-strong);background:rgba(255,255,255,.035);color:#d3ebe0}
+.btn-secondary:hover{border-color:rgba(92,235,179,.32);background:rgba(92,235,179,.07)}
+.btn-primary{border:1px solid rgba(130,255,206,.45);background:linear-gradient(140deg,#66f2bd,#3bd99d);color:#042217;box-shadow:0 8px 25px rgba(55,214,159,.14)}
+.btn-primary:hover{background:linear-gradient(140deg,#7bf8c7,#4ae5aa);box-shadow:0 10px 30px rgba(55,214,159,.23)}
+.btn-primary::after{content:"";position:absolute;inset:0;background:linear-gradient(110deg,transparent 20%,rgba(255,255,255,.3) 48%,transparent 64%);transform:translateX(-120%);transition:transform .6s}
+.btn-primary:hover::after{transform:translateX(120%)}
+
+.result-card{border:1px solid var(--line);border-radius:14px;padding:11px 12px 10px;background:linear-gradient(160deg,rgba(255,255,255,.028),rgba(255,255,255,.01));transition:border-color .25s,background .25s}
+.result-card[data-state="ok"]{border-color:rgba(92,235,179,.25);background:linear-gradient(160deg,rgba(92,235,179,.075),rgba(255,255,255,.012))}
+.result-card[data-state="warning"]{border-color:rgba(255,123,123,.3);background:linear-gradient(160deg,rgba(255,123,123,.085),rgba(255,255,255,.012))}
+.result-card[data-state="stale"]{border-color:rgba(244,182,95,.24);background:linear-gradient(160deg,rgba(244,182,95,.06),rgba(255,255,255,.01))}
+.result-top{display:flex;align-items:center;justify-content:space-between;gap:8px}
+.result-label{font:500 7.8px/1 var(--mono);letter-spacing:.13em;color:var(--faint);text-transform:uppercase}
+.result-status{display:flex;align-items:center;gap:5px;font:500 9px/1 var(--sans);color:var(--muted);white-space:nowrap}
+.result-status::before{content:"";width:5px;height:5px;border-radius:50%;background:currentColor}
+.result-card[data-state="ok"] .result-status{color:var(--mint)}
+.result-card[data-state="warning"] .result-status{color:var(--red)}
+.result-card[data-state="stale"] .result-status{color:var(--amber)}
+.result-main{display:flex;align-items:center;gap:11px;margin:7px 0 7px}
+.rmse-value{font:500 31px/1 var(--mono);letter-spacing:-.07em;color:#e8faf1;min-width:90px;white-space:nowrap;transition:color .2s}
+.result-card[data-state="ok"] .rmse-value{color:#9ffbd3}
+.result-card[data-state="warning"] .rmse-value{color:#ffaaa1}
+.result-card[data-state="stale"] .rmse-value{color:#ffd29b;opacity:.82}
+.rmse-value small{font-size:13px;letter-spacing:-.02em;margin-left:2px;color:var(--faint)}
+.rmse-value.is-empty{color:var(--faint)}
+.result-desc{font-size:9.4px;line-height:1.5;color:var(--muted);max-width:210px}
+.threshold{margin-top:2px}
+.threshold-labels{display:flex;justify-content:space-between;color:#526f62;font:500 6.9px/1 var(--mono);margin-bottom:4px}
+.threshold-labels span:nth-child(2){color:#ad9268}
+.threshold-track{position:relative;height:4px;border-radius:99px;background:rgba(255,255,255,.055);overflow:hidden}
+#thresholdFill{position:absolute;left:0;top:0;bottom:0;width:0;border-radius:99px;background:linear-gradient(90deg,var(--mint),#d6e38f 58%,var(--red));transition:width .5s cubic-bezier(.2,.8,.2,1)}
+.threshold-mark{position:absolute;left:30%;top:-2px;bottom:-2px;width:1px;background:rgba(244,182,95,.85);box-shadow:0 0 4px rgba(244,182,95,.4)}
+.method{border-top:1px solid var(--line);padding-top:2px;color:var(--muted);font-size:9.5px}
+.method summary{cursor:pointer;list-style:none;display:flex;align-items:center;gap:6px;min-height:22px;color:#7e9e8f;font:500 9px/1.3 var(--sans);user-select:none}
+.method summary::-webkit-details-marker{display:none}
+.method summary::before{content:"+";width:14px;height:14px;display:grid;place-items:center;border:1px solid var(--line);border-radius:4px;font:500 11px/1 var(--mono);color:var(--faint);transition:.2s}
+.method[open] summary::before{content:"−";color:var(--mint);border-color:rgba(92,235,179,.24)}
+.method p{margin:4px 0 2px;line-height:1.55;font-size:9px;color:#789588}
+.method code{display:block;margin-top:5px;border:1px solid var(--line);background:rgba(0,0,0,.17);border-radius:6px;padding:6px 7px;color:#a6c7b8;font:400 7.7px/1.5 var(--mono);overflow-wrap:anywhere}
+.disclaimer{font-size:8.2px;line-height:1.5;color:#4e6a5e;padding:0 2px 1px;display:flex;gap:6px;align-items:flex-start;margin-top:auto}
+.disclaimer::before{content:"!";flex:none;width:12px;height:12px;border:1px solid #476155;border-radius:50%;display:grid;place-items:center;font:500 8px/1 var(--mono);color:#789588;margin-top:1px}
+
+@media (max-width:1280px){
+  .aura-main{grid-template-columns:minmax(0,1.45fr) minmax(356px,.85fr)}
+  .brand-copy h1{font-size:17px}
+}
+@media (max-width:1120px){
+  .aura-main{grid-template-columns:minmax(0,1.35fr) minmax(350px,.9fr)}
+  .visual-card,.side-panel{height:clamp(590px,calc(100dvh - 96px),900px)}
+  .case-tabs{max-width:56vw}
+}
+@media (max-width:960px){
+  .aura-app{padding:12px}
+  .aura-main{grid-template-columns:1fr;gap:11px}
+  .visual-card{height:clamp(500px,64dvh,670px)}
+  .side-panel{height:auto;max-height:none;overflow:visible}
+  .aura-header{height:auto;min-height:52px;padding-bottom:9px}
+  .case-tabs{max-width:70vw}
+}
+@media (max-width:640px){
+  .aura-app{padding:9px}
+  .aura-header{padding:1px 2px 8px}
+  .brand-mark{width:36px;height:36px;border-radius:12px}.brand-mark svg{width:24px;height:24px}
+  .brand-copy h1{font-size:15.5px;white-space:normal;max-width:235px;line-height:1.25}
+  .brand-eyebrow{font-size:8px;letter-spacing:.12em}
+  .version-chip{font-size:7.5px;padding:1px 5px}
+  .header-meta,.power-pill{display:none}
+  .sim-badge{font-size:8px;padding:6px 8px}
+  .visual-card{border-radius:17px;height:clamp(440px,55dvh,520px);min-height:0}
+  .side-panel{border-radius:17px;padding:12px}
+  .stage-top{left:10px;right:10px;top:10px}
+  .stage-top-left{gap:6px}
+  .seg-btn{padding:7px 9px;font-size:10px}
+  .tool-btn{padding:0 8px;font-size:9px;height:29px}.tool-btn span{display:none}
+  .case-tabs{max-width:100%;width:100%}
+  .case-tab{font-size:9px;padding:6px 8px}
+  .stage-bottom{left:10px;right:10px;bottom:10px}
+  .stage-hint{font-size:8.5px;padding:6px 8px}.dimension-chip{display:none}
+  .measure-badge{top:auto;bottom:52px;font-size:8px}
+  .component-card{left:10px;bottom:48px;width:calc(100% - 20px);max-height:220px;overflow:auto}
+  .probe-tag{width:196px;padding:8px}
+  .chart-wrap{height:198px}
+  .panel-header h2{font-size:16px}
+  .toast{bottom:50px;font-size:9.5px}
+}
+@media (prefers-reduced-motion:reduce){
+  *,*::before,*::after{animation-duration:.001ms!important;animation-iteration-count:1!important;transition-duration:.001ms!important;scroll-behavior:auto!important}
+}
+</style>
+</head>
+<body>
+<div class="aura-app">
+  <header class="aura-header">
+    <div class="brand-block">
+      <div class="brand-mark" aria-hidden="true">
+        <svg viewBox="0 0 32 32" fill="none">
+          <path d="M4 17.5h5l2.2-6.2 4.1 13.4 3-9.1 2.1 4.3H28" stroke="#6df0bd" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/>
+          <circle cx="16" cy="16" r="13.2" stroke="#6df0bd" stroke-opacity=".22" stroke-width="1"/>
+          <circle cx="25.8" cy="7" r="2" fill="#6df0bd" fill-opacity=".9"/>
+        </svg>
+      </div>
+      <div class="brand-copy">
+        <div class="brand-eyebrow">AURA <span>/</span> BIOMEDICAL SYSTEMS</div>
+        <h1>EIS Dermal Scanner <span class="version-chip">3D SIM</span></h1>
+      </div>
+    </div>
+    <div class="header-right">
+      <div class="header-meta"><span class="live-dot"></span><span>AD5933 · 1–100 kHz</span></div>
+      <div class="power-pill" title="Pin LiPo mô phỏng"><span class="battery-icon"></span><span>86%</span></div>
+      <div class="sim-badge">MÔ PHỎNG</div>
+    </div>
+  </header>
+
+  <main class="aura-main">
+    <section class="visual-card" aria-label="Mô phỏng 3D thiết bị AURA">
+      <div id="stage" class="stage" data-workspace="device">
+        <div class="stage-top">
+          <div class="stage-top-left">
+            <div class="segmented" role="tablist" aria-label="Không gian mô phỏng">
+              <button class="seg-btn is-active" data-workspace="device" role="tab" aria-selected="true">Thiết bị</button>
+              <button class="seg-btn" data-workspace="measure" role="tab" aria-selected="false"><span class="dot"></span>Đo da</button>
+            </div>
+            <div class="case-tabs" id="caseTabs" role="group" aria-label="Chế độ xem vỏ thiết bị">
+              <button class="case-tab is-active" data-case="closed">Đóng vỏ</button>
+              <button class="case-tab" data-case="open">Mở nắp</button>
+              <button class="case-tab" data-case="xray">Nhìn xuyên vỏ</button>
+              <button class="case-tab" data-case="bare">Bỏ vỏ</button>
+            </div>
+          </div>
+          <div class="stage-tools">
+            <button class="tool-btn" id="labelsBtn" type="button" aria-pressed="false" title="Hiện tên linh kiện">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M20.6 13.2 11 3.6H4v7l9.6 9.6a2 2 0 0 0 2.8 0l4.2-4.2a2 2 0 0 0 0-2.8Z"/><circle cx="7.7" cy="7.7" r="1.1" fill="currentColor" stroke="none"/></svg><span>Nhãn</span>
+            </button>
+            <button class="tool-btn" id="resetViewBtn" type="button" title="Đặt lại góc nhìn">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4.9 8.2A8 8 0 1 1 4 14"/><path d="M4.2 3.8v4.7h4.7"/></svg><span>Reset</span>
+            </button>
+          </div>
+        </div>
+
+        <div class="measure-badge"><i></i>Đo phổ trở kháng · live</div>
+
+        <div class="component-card" id="componentCard" role="dialog" aria-label="Thông số linh kiện">
+          <div class="component-card-head">
+            <div><div class="component-kicker" id="componentKicker">LINH KIỆN</div><h3 id="componentName">—</h3></div>
+            <button class="component-close" id="componentClose" type="button" aria-label="Đóng thông số">×</button>
+          </div>
+          <p class="component-desc" id="componentDesc"></p>
+          <div class="spec-grid" id="componentSpecs"></div>
+          <div class="component-foot">Chạm linh kiện khác trong mô hình để xem tiếp</div>
+        </div>
+
+        <div class="probe-tag" id="probeTag" aria-hidden="true">
+          <div class="probe-tag-title"><span>J2 · 2-pogo probe</span><span id="probeState">98% contact</span></div>
+          <div class="probe-electrodes">
+            <div class="probe-el"><b>DRIVE</b><small>J2.1</small></div>
+            <div class="probe-el v"><b>SENSE</b><small>J2.2</small></div>
+          </div>
+          <div class="probe-tag-foot"><span>vùng đo ≈ 3 mm</span><span>2 chấu pogo</span></div>
+        </div>
+
+        <div class="stage-bottom">
+          <div class="stage-hint" id="stageHint">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M9 11V6.7a1.7 1.7 0 0 1 3.4 0V11"/><path d="M12.4 10.6V5.8a1.7 1.7 0 0 1 3.4 0v5.4"/><path d="M15.8 11.2V8a1.7 1.7 0 0 1 3.4 0v6.7c0 4.1-2.7 6.3-6.6 6.3-2.5 0-4.2-1.1-5.6-3.3l-2.3-3.7a1.7 1.7 0 0 1 2.6-2.1L9 14"/></svg>
+            <span id="stageHintText">Kéo xoay · cuộn để zoom · chạm linh kiện</span>
+          </div>
+          <div class="dimension-chip">66 × 66 × 13 mm</div>
+        </div>
+
+        <div class="stage-fallback">
+          <div><h3>Không khởi tạo được WebGL</h3><p>Trình duyệt hiện tại chưa hỗ trợ WebGL. Hãy mở file bằng Chrome/Edge phiên bản mới và bật tăng tốc phần cứng để xem mô hình 3D.</p></div>
+        </div>
+
+        <div class="toast" id="toast" role="status" aria-live="polite"></div>
+      </div>
+    </section>
+
+    <aside class="side-panel" aria-label="Bảng điều khiển đo EIS">
+      <div class="panel-header">
+        <div>
+          <div class="panel-kicker">PHIÊN ĐO · EIS / 01</div>
+          <h2>Kiểm tra mô da</h2>
+        </div>
+        <div class="session-badge" id="sessionBadge" data-state="idle">Sẵn sàng</div>
+      </div>
+
+      <section class="probe-schematic" aria-label="Sơ đồ hai điện cực">
+        <div class="schematic-head"><span>Đầu dò J2 · 2 chấu</span><span>tiếp xúc da</span></div>
+        <div class="electrode-strip">
+          <div class="electrode"><b>D</b><span>Drive · J2.1</span></div>
+          <div class="electrode v"><b>S</b><span>Sense · J2.2</span></div>
+        </div>
+        <div class="schematic-note"><span class="amber">Drive</span> ← U5.S1 <span class="sep">·</span> <span class="cyan">Sense</span> → U4B (TIA)</div>
+      </section>
+
+      <section class="card-surface chart-card" aria-label="Đồ thị trở kháng">
+        <div class="chart-head">
+          <div><div class="card-kicker">Phổ trở kháng</div><h3>|Z| theo tần số <em>Ω</em></h3></div>
+          <div class="legend"><span class="ref"><i></i>Mốc da lành</span><span><i id="currentLegend"></i>Đang đo</span></div>
+        </div>
+        <div class="chart-wrap"><canvas id="chart" role="img" aria-label="Biểu đồ trở kháng theo tần số từ 1 kHz đến 100 kHz"></canvas></div>
+        <div class="chart-foot"><span>1 kHz</span><span>LOG FREQUENCY</span><span>100 kHz</span></div>
+      </section>
+
+      <div class="metrics-row">
+        <div class="mini-metric"><span>Tiếp xúc</span><strong id="contactVal">—<small>%</small></strong></div>
+        <div class="mini-metric"><span>Phủ tổn thương</span><strong id="coverageVal">—<small>%</small></strong></div>
+        <div class="mini-metric"><span>|Z| @ 1 kHz</span><strong id="z1kVal">—<small>kΩ</small></strong></div>
+      </div>
+
+      <div class="position-presets" aria-label="Điểm đo nhanh">
+        <span>Điểm đo</span>
+        <button class="preset-btn is-current" type="button" data-preset="healthy">Da lành</button>
+        <button class="preset-btn" type="button" data-preset="lesion">Vùng tổn thương</button>
+      </div>
+
+      <div class="workflow-line"><b>1</b><span>Da lành → Hiệu chuẩn</span><span class="arrow">·</span><b>2</b><span>Vùng nghi ngờ → Đo</span></div>
+
+      <div class="action-grid">
+        <button class="btn btn-secondary" id="calibrateBtn" type="button">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 8.5V5.7A1.7 1.7 0 0 1 5.7 4h2.8M15.5 4h2.8A1.7 1.7 0 0 1 20 5.7v2.8M20 15.5v2.8a1.7 1.7 0 0 1-1.7 1.7h-2.8M8.5 20H5.7A1.7 1.7 0 0 1 4 18.3v-2.8"/><circle cx="12" cy="12" r="3.1"/></svg>
+          Hiệu chuẩn
+        </button>
+        <button class="btn btn-primary" id="measureBtn" type="button">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><path d="M4 17.5h3l2-5.6 2.7 8.4 2.1-5.2 1.5 2.4H20"/><path d="M4 4.5h16"/></svg>
+          Đo vùng hiện tại
+        </button>
+      </div>
+
+      <section class="result-card" id="resultCard" data-state="idle" aria-live="polite">
+        <div class="result-top"><span class="result-label">Kết quả RMSE</span><span class="result-status" id="resultStatus">Chưa đo</span></div>
+        <div class="result-main">
+          <div class="rmse-value is-empty"><span id="rmseValue">—</span><small>%</small></div>
+          <div class="result-desc" id="resultDesc">Hiệu chuẩn trên vùng da lành, sau đó đo vùng cần kiểm tra.</div>
+        </div>
+        <div class="threshold">
+          <div class="threshold-labels"><span>0%</span><span>Ngưỡng 15%</span><span>50%</span></div>
+          <div class="threshold-track"><div id="thresholdFill"></div><div class="threshold-mark"></div></div>
+        </div>
+      </section>
+
+      <details class="method">
+        <summary>RMSE được áp dụng như thế nào?</summary>
+        <p>Mỗi điểm tần số được chuẩn hóa theo trở kháng mốc, nên RMSE là sai số tương đối — không phụ thuộc đơn vị Ω.</p>
+        <code>RMSE% = √( mean( ((Z_đo − Z_mốc) / Z_mốc)² ) ) × 100</code>
+      </details>
+
+      <div class="disclaimer">Mô hình mô phỏng phục vụ minh họa kỹ thuật, không phải thiết bị chẩn đoán y tế. Kết quả không thay thế sinh thiết hoặc đánh giá lâm sàng.</div>
+    </aside>
+  </main>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<script>
+(function () {
+  'use strict';
+
+  // =====================================================================
+  //  1. DỮ LIỆU & MÔ HÌNH VẬT LÝ
+  // =====================================================================
+  const $ = (sel, root = document) => root.querySelector(sel);
+  const $$ = (sel, root = document) => Array.from(root.querySelectorAll(sel));
+  const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
+  const lerp = (a, b, t) => a + (b - a) * t;
+  const fmt = (v, d = 1) => Number(v).toFixed(d).replace('.', ',');
+  const fmtInt = (v) => new Intl.NumberFormat('vi-VN').format(Math.round(v));
+
+  const FREQS = Array.from({ length: 41 }, (_, i) => 1000 * Math.pow(100, i / 40));
+  const THRESHOLD = 15;
+  const SKIN = { x: 8.9, z: 0.25, top: 0.636 };
+  const LESION_RADIUS = 1.12;
+  const PROBE_LIMITS = { u: 2.68, v: 2.18 };
+  const CABLE_DOCK = { x: -2.6, y: 0.3, z: -3.81 }; // vị trí đầu nối cáp, toạ độ cục bộ skinRoot
+  const PIN_OFFSETS = [-0.2, 0.2];
+  const HEALTHY = { rInf: 1200, delta: 28000, fc: 7000, alpha: 0.68 };
+  const LESION = { rInf: 2200, delta: 11000, fc: 12000, alpha: 0.78 };
+
+  const state = {
+    workspace: 'device',
+    caseMode: 'closed',
+    labels: false,
+    probe: { u: -2.08, v: 1.34 },
+    coverage: 0,
+    contact: 98.8,
+    current: [],
+    baseline: [],
+    baselineSource: 'Mặc định · mô lành',
+    result: null,
+    stale: false,
+    busy: false,
+    dragging: false,
+    selected: null,
+    chartDirty: false
+  };
+
+  function coleMagnitude(f, p) {
+    const x = Math.pow(f / p.fc, 1 - p.alpha);
+    const angle = (1 - p.alpha) * Math.PI / 2;
+    const a = 1 + x * Math.cos(angle);
+    const b = x * Math.sin(angle);
+    const denom = a * a + b * b;
+    const real = p.rInf + p.delta * a / denom;
+    const imag = -p.delta * b / denom;
+    return Math.hypot(real, imag);
+  }
+
+  // Đầu dò 2 điện cực: 2 chấu pogo trải dọc trục z. Độ phủ tổn thương
+  // là trung bình mức chồng lấn của từng điện cực lên vùng lesion.
+  function coverageAt(u, v) {
+    let sum = 0;
+    for (const dx of PIN_OFFSETS) {
+      const distance = Math.hypot(u + dx, v);
+      sum += clamp((LESION_RADIUS + 0.27 - distance) / 0.54, 0, 1);
+    }
+    return sum / PIN_OFFSETS.length;
+  }
+
+  function buildSpectrum(u, v) {
+    const w = coverageAt(u, v);
+    return FREQS.map((f, i) => {
+      const healthy = coleMagnitude(f, HEALTHY);
+      const lesion = coleMagnitude(f, LESION);
+      // Nhiễu đo rất nhỏ, tất định theo vị trí để phép đo lặp lại ổn định.
+      const ripple = 1
+        + 0.0042 * Math.sin(i * 1.37 + u * 1.7 + v * 1.15)
+        + 0.0023 * Math.sin(i * 2.41 - u * 0.73 + v * 1.91);
+      return { f, z: ((1 - w) * healthy + w * lesion) * ripple };
+    });
+  }
+
+  state.baseline = buildSpectrum(-2.08, 1.34);
+  state.current = buildSpectrum(state.probe.u, state.probe.v);
+  state.coverage = coverageAt(state.probe.u, state.probe.v);
+
+  function calcRmse(reference, measured) {
+    let total = 0;
+    for (let i = 0; i < reference.length; i++) {
+      const rel = (measured[i].z - reference[i].z) / reference[i].z;
+      total += rel * rel;
+    }
+    return Math.sqrt(total / reference.length) * 100;
+  }
+
+  function contactQuality(u, v) {
+    const edge = Math.max(Math.abs(u) / PROBE_LIMITS.u, Math.abs(v) / PROBE_LIMITS.v);
+    return clamp(99.3 - Math.max(0, edge - 0.8) * 6.5, 94.5, 99.3);
+  }
+
+  // =====================================================================
+  //  2. DOM REFS
+  // =====================================================================
+  const els = {
+    stage: $('#stage'),
+    caseTabs: $('#caseTabs'),
+    caseTabButtons: $$('.case-tab'),
+    workspaceButtons: $$('.seg-btn'),
+    labelsBtn: $('#labelsBtn'),
+    resetViewBtn: $('#resetViewBtn'),
+    componentCard: $('#componentCard'),
+    componentKicker: $('#componentKicker'),
+    componentName: $('#componentName'),
+    componentDesc: $('#componentDesc'),
+    componentSpecs: $('#componentSpecs'),
+    componentClose: $('#componentClose'),
+    probeTag: $('#probeTag'),
+    probeState: $('#probeState'),
+    stageHintText: $('#stageHintText'),
+    toast: $('#toast'),
+    sessionBadge: $('#sessionBadge'),
+    contactVal: $('#contactVal'),
+    coverageVal: $('#coverageVal'),
+    z1kVal: $('#z1kVal'),
+    calibrateBtn: $('#calibrateBtn'),
+    measureBtn: $('#measureBtn'),
+    resultCard: $('#resultCard'),
+    resultStatus: $('#resultStatus'),
+    rmseValue: $('#rmseValue'),
+    resultDesc: $('#resultDesc'),
+    thresholdFill: $('#thresholdFill'),
+    currentLegend: $('#currentLegend'),
+    chartCanvas: $('#chart'),
+    presetButtons: $$('.preset-btn'),
+    chartWrap: $('.chart-wrap')
+  };
+
+  const MODULE_INFO = {
+    case: {
+      kicker: 'WEARABLE POD · 01',
+      name: 'Pod Cim Ng',
+      desc: 'Pod tròn frosted trắng hơi đục, đường kính 66 mm, đeo tay bằng dây dù. Bút đo nằm bên ngoài, nối cáp qua grommet để luôn sẵn sàng khi mở nắp.',
+      specs: [['Kích thước', '66 × 66 × 13 mm'], ['Vật liệu', 'Frosted trắng'], ['Cơ cấu', 'Bản lề trung tâm + nam châm'], ['Đeo tay', 'Dây dù 18 mm']]
+    },
+    lid: {
+      kicker: 'NẮP · CỬA SỔ UV',
+      name: 'Nắp thiết bị & cửa sổ cảm biến',
+      desc: 'Nắp frosted trắng đóng kín khoang điện tử. Cửa sổ thạch anh cho phép cảm biến UV nhận ánh sáng môi trường mà không cần mở máy.',
+      specs: [['Cửa sổ', 'Thạch anh trong'], ['Cảm biến', 'GUVA-S12SD'], ['Bản lề', 'Trung tâm, 98°'], ['Niêm phong', 'Gasket silicon']]
+    },
+    strap: {
+      kicker: 'WEARABLE · ĐEO TAY',
+      name: 'Dây đeo vải dù',
+      desc: 'Dây đeo tháo rời giúp mang theo thiết bị trên cổ tay. Hai khoen kim loại chịu lực gắn vào đáy vỏ.',
+      specs: [['Bề rộng', '18 mm'], ['Vật liệu', 'Nylon dệt'], ['Khoen', 'Thép không gỉ'], ['Chiều dài', '200–240 mm']]
+    },
+    pcb: {
+      kicker: 'NỀN TẢNG · PERFBOARD',
+      name: 'Bo đục lỗ 2 mặt',
+      desc: 'Perfboard sợi thủy tinh màu xanh lá nhạt, mạng lưới lỗ mạ đồng hai mặt. Toàn bộ mạch cũ — pin, TP4056, boost, ESP32-S3, EIS và UV — được gom gọn trên bo 47 × 35 mm.',
+      specs: [['Kích thước', '47 × 35 mm'], ['Vật liệu', 'FR-4 sợi thủy tinh'], ['Mặt', '2 mặt, lỗ 2,54 mm'], ['Module', '5 bo chức năng']]
+    },
+    battery: {
+      kicker: 'NGUỒN · LIPO',
+      name: 'Pin LiPo 3.7 V · 1000 mAh',
+      desc: 'Pin pouch trắng đặt phía trước bo mạch trên đệm foam, có Kapton cách điện. Hai dây đỏ/đen nối trực tiếp vào module sạc TP4056.',
+      specs: [['Điện áp', '3,7 V danh định'], ['Dung lượng', '1000 mAh'], ['Kích thước', '41 × 28 × 4,4 mm'], ['Sạc', 'TP4056 / USB-C']]
+    },
+    tp4056: {
+      kicker: 'MODULE SẠC',
+      name: 'TP4056 · sạc Li-ion 1 cell',
+      desc: 'Bo xanh nhỏ có cổng USB-C bạc ở một đầu, IC sạc đen ở giữa và hai pad hàn bạc ở đầu còn lại. Sạc pin từ 5 V, giới hạn áp cuối 4,2 V.',
+      specs: [['Ngõ vào', '5 V · USB-C'], ['Ngõ ra', '4,2 V CV'], ['Linh kiện', 'IC sạc + LED'], ['Pad', '2 pad hàn bạc']]
+    },
+    esp32: {
+      kicker: 'ĐIỀU KHIỂN',
+      name: 'ESP32-S3 Mini',
+      desc: 'Vi điều khiển trung tâm của mạch cũ: điều khiển AD5933 qua I²C, đọc cảm biến UV và truyền dữ liệu BLE/Wi-Fi.',
+      specs: [['Lõi', 'Xtensa LX7 × 2'], ['Tần số', 'Tối đa 240 MHz'], ['Kết nối', 'Wi-Fi + BLE 5'], ['Nguồn', '3,3 V']]
+    },
+    ad5933: {
+      kicker: 'FRONT-END EIS',
+      name: 'Mạch EIS · AD5933',
+      desc: 'Bo xanh lá lớn nhất trên perfboard, giữ nguyên từ bản cũ: IC AD5933 dạng vuông, các tụ điện trụ nhỏ màu nâu/xanh và header J2 2 chân ra bút đo.',
+      specs: [['IC chính', 'AD5933'], ['Dải quét', '1–100 kHz'], ['Linh kiện', 'Tụ + thạch anh'], ['Kết nối', 'Header J2 · 2 chân']]
+    },
+    boost: {
+      kicker: 'NGUỒN PHỤ',
+      name: 'Boost DC-DC 3,7 → 12 V',
+      desc: 'Module tăng áp mini tạo rail 12 V theo thiết kế đầu dò. Cần kiểm tra cách ly và giới hạn dòng để bảo đảm an toàn khi tiếp xúc da.',
+      specs: [['Ngõ vào', '3,7 V'], ['Ngõ ra', '12 V (chỉnh)'], ['Kiểu', 'Boost switching'], ['Tải', 'Theo module thực tế']]
+    },
+    uv: {
+      kicker: 'CẢM BIẾN MÔI TRƯỜNG',
+      name: 'GUVA-S12SD · UV',
+      desc: 'Bo xanh nhỏ với cảm biến vòm trong suốt nổi bật. Photodiode UV cho dải UVA/UVB, ngõ ra analog giúp đối chiếu mức phơi nhiễm với vùng da đo.',
+      specs: [['Bước sóng', '240–370 nm'], ['Ngõ ra', 'Analog'], ['Nguồn', '2,5–5 V'], ['Vị trí', 'Dưới cửa sổ nắp']]
+    },
+    pen: {
+      kicker: 'ĐẦU DÒ · 4 ĐIỆN CỰC',
+      name: 'Đầu dò 2 chấu pogo',
+      desc: 'Ổ cắm cái ôm header J2, thân bút kéo ra ngoài mép board, 2 chấu pogo mạ vàng hướng xuống áp lên da. Dây vàng = drive (J2.1), xanh = sense (J2.2).',
+      specs: [['Header', 'J2 · 1×2 · 2.54 mm'], ['Drive', 'J2.1 ← U5.S1'], ['Sense', 'J2.2 → U4B'], ['Điện cực', '2 × pogo mạ vàng']]
+    },
+    skin: {
+      kicker: 'MÔ HÌNH DA',
+      name: 'Da 3 lớp · vùng khỏe mạnh',
+      desc: 'Mô phỏng lớp sừng, biểu bì và hạ bì. Trở kháng cao ở tần số thấp do màng tế bào còn nguyên vẹn.',
+      specs: [['Mô hình', 'Cole-Cole đơn'], ['Lớp', '3 lớp'], ['Vùng đo', '3 mm'], ['Mốc', 'Da lành']]
+    },
+    lesion: {
+      kicker: 'VÙNG NGHI NGỜ',
+      name: 'Tổn thương giả lập',
+      desc: 'Vùng mô có cấu trúc tế bào bị phá vỡ, tăng dịch kẽ và mạch máu — trở kháng thấp hơn rõ rệt ở dải tần thấp.',
+      specs: [['Mô hình', 'Cole-Cole tổn thương'], ['Đường kính', '≈ 22 mm'], ['Đặc trưng', '|Z| thấp hơn'], ['Mục đích', 'Mô phỏng EIS']]
+    }
+  };
+
+  // =====================================================================
+  //  3. UI: TELEMETRY, RESULT, TOAST
+  // =====================================================================
+  let toastTimer = null;
+  function showToast(message, tone = 'ok') {
+    els.toast.textContent = message;
+    els.toast.classList.toggle('warn', tone === 'warn');
+    els.toast.classList.add('is-visible');
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => els.toast.classList.remove('is-visible'), 3400);
+  }
+
+  function setSession(label, tone = 'idle') {
+    els.sessionBadge.textContent = label;
+    els.sessionBadge.dataset.state = tone;
+  }
+
+  function updateTelemetry() {
+    els.contactVal.innerHTML = `${fmt(state.contact, 1)}<small>%</small>`;
+    els.coverageVal.innerHTML = `${Math.round(state.coverage * 100)}<small>%</small>`;
+    const z1k = state.current.length ? state.current[0].z : 0;
+    els.z1kVal.innerHTML = `${fmt(z1k / 1000, 1)}<small>kΩ</small>`;
+    els.probeState.textContent = `${fmt(state.contact, 0)}% contact`;
+  }
+
+  function updatePresetState() {
+    const healthyDist = Math.hypot(state.probe.u + 2.08, state.probe.v - 1.34);
+    const lesionDist = Math.hypot(state.probe.u, state.probe.v);
+    els.presetButtons.forEach((btn) => {
+      const isHealthy = btn.dataset.preset === 'healthy';
+      btn.classList.toggle('is-current', isHealthy ? healthyDist < 0.4 : lesionDist < 0.4);
+    });
+  }
+
+  function updateResultCard() {
+    const card = els.resultCard;
+    if (!state.result) {
+      card.dataset.state = 'idle';
+      els.resultStatus.textContent = 'Chưa đo';
+      els.rmseValue.textContent = '—';
+      els.rmseValue.classList.add('is-empty');
+      els.resultDesc.textContent = 'Hiệu chuẩn trên vùng da lành, sau đó đo vùng cần kiểm tra.';
+      els.thresholdFill.style.width = '0%';
+      return;
+    }
+
+    els.rmseValue.classList.remove('is-empty');
+    els.rmseValue.textContent = fmt(state.result.rmse, 1);
+    els.thresholdFill.style.width = `${clamp(state.result.rmse / 50 * 100, 0, 100)}%`;
+
+    if (state.stale) {
+      card.dataset.state = 'stale';
+      els.resultStatus.textContent = 'Cần đo lại';
+      els.resultDesc.textContent = 'Đầu dò đã được di chuyển. Kết quả cũ không còn áp dụng cho vị trí hiện tại.';
+      return;
+    }
+
+    if (state.result.abnormal) {
+      card.dataset.state = 'warning';
+      els.resultStatus.textContent = 'Phát hiện bất thường';
+      els.resultDesc.textContent = 'Phổ trở kháng lệch khỏi mốc da lành, chủ yếu ở dải tần thấp. Cần đánh giá lâm sàng.';
+    } else {
+      card.dataset.state = 'ok';
+      els.resultStatus.textContent = 'Mô bình thường';
+      els.resultDesc.textContent = 'Phổ trở kháng tương đồng với mốc da lành trong ngưỡng cho phép.';
+    }
+  }
+
+  function setProbe(u, v) {
+    state.probe.u = clamp(u, -PROBE_LIMITS.u, PROBE_LIMITS.u);
+    state.probe.v = clamp(v, -PROBE_LIMITS.v, PROBE_LIMITS.v);
+    state.coverage = coverageAt(state.probe.u, state.probe.v);
+    state.contact = contactQuality(state.probe.u, state.probe.v);
+    state.current = buildSpectrum(state.probe.u, state.probe.v);
+
+    if (state.result && !state.stale) {
+      const moved = Math.hypot(state.probe.u - state.result.u, state.probe.v - state.result.v);
+      if (moved > 0.11) {
+        state.stale = true;
+        setSession('Cần đo lại', 'idle');
+        updateResultCard();
+      }
+    }
+    updateTelemetry();
+    updatePresetState();
+    queueChart();
+  }
+
+  function onProbeDragged(u, v) {
+    setProbe(u, v);
+  }
+
+  // =====================================================================
+  //  4. CHART.JS
+  // =====================================================================
+  let chart = null;
+  let chartTimer = null;
+  let lastChartSync = 0;
+
+  function chartLabelForFrequency(v) {
+    if (v >= 100000) return '100k';
+    if (v >= 10000) return `${Math.round(v / 1000)}k`;
+    if (v >= 1000) return `${(v / 1000).toFixed(v % 1000 ? 1 : 0).replace('.', ',')}k`;
+    return `${Math.round(v)}`;
+  }
+
+  function chartColors() {
+    if (state.result && !state.stale) {
+      return state.result.abnormal
+        ? { line: '#ff7b7b', fill: 'rgba(255,123,123,.08)' }
+        : { line: '#5cebb3', fill: 'rgba(92,235,179,.09)' };
+    }
+    return { line: '#6ed8ff', fill: 'rgba(110,216,255,.075)' };
+  }
+
+  function initChart() {
+    if (typeof Chart === 'undefined') {
+      if (els.chartWrap) els.chartWrap.innerHTML = '<div style="height:100%;display:grid;place-items:center;color:#6b8b7c;font-size:10px;text-align:center;padding:12px">Không tải được Chart.js.<br>Kiểm tra kết nối mạng.</div>';
+      return;
+    }
+    Chart.defaults.font.family = '"Be Vietnam Pro", sans-serif';
+    Chart.defaults.color = '#759385';
+    const colors = chartColors();
+    const ctx = els.chartCanvas.getContext('2d');
+    chart = new Chart(ctx, {
+      type: 'line',
+      data: {
+        datasets: [
+          {
+            label: 'Mốc da lành',
+            data: state.baseline.map((d) => ({ x: d.f, y: d.z })),
+            borderColor: '#708f81',
+            backgroundColor: 'transparent',
+            borderWidth: 1.25,
+            borderDash: [4, 4],
+            pointRadius: 0,
+            pointHoverRadius: 3,
+            pointHoverBackgroundColor: '#8eb3a2',
+            tension: 0.22,
+            fill: false
+          },
+          {
+            label: 'Phổ đang đo',
+            data: state.current.map((d) => ({ x: d.f, y: d.z })),
+            borderColor: colors.line,
+            backgroundColor: colors.fill,
+            borderWidth: 2.1,
+            pointRadius: 0,
+            pointHoverRadius: 4,
+            pointHoverBorderWidth: 0,
+            pointHoverBackgroundColor: colors.line,
+            tension: 0.24,
+            fill: true
+          }
+        ]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        animation: { duration: 280 },
+        interaction: { mode: 'nearest', axis: 'x', intersect: false },
+        layout: { padding: { top: 7, right: 6, bottom: 0, left: 0 } },
+        plugins: {
+          legend: { display: false },
+          tooltip: {
+            backgroundColor: 'rgba(4,17,12,.95)',
+            borderColor: 'rgba(140,220,188,.2)',
+            borderWidth: 1,
+            titleColor: '#d9eee4',
+            bodyColor: '#9dbdaf',
+            padding: 9,
+            displayColors: true,
+            boxWidth: 6,
+            boxHeight: 6,
+            titleFont: { size: 9, weight: '500' },
+            bodyFont: { size: 9 },
+            callbacks: {
+              title: (items) => {
+                const hz = items[0]?.parsed?.x || 0;
+                return `${fmt(hz >= 1000 ? hz / 1000 : hz, hz >= 10000 ? 0 : 1)} kHz`;
+              },
+              label: (item) => {
+                const label = item.datasetIndex === 0 ? 'Mốc' : 'Đo';
+                return `${label}: ${fmtInt(item.parsed.y)} Ω`;
+              }
+            }
+          }
+        },
+        scales: {
+          x: {
+            type: 'logarithmic',
+            min: 1000,
+            max: 100000,
+            border: { display: false },
+            grid: { color: 'rgba(142,195,172,.075)', drawTicks: false, tickLength: 0 },
+            ticks: {
+              color: '#5c7b6d',
+              padding: 7,
+              font: { family: '"IBM Plex Mono", monospace', size: 7.5 },
+              maxRotation: 0,
+              autoSkip: false,
+              afterBuildTicks: (axis) => {
+                axis.ticks = [1000, 10000, 100000].map((value) => ({ value }));
+              },
+              callback: (value) => {
+                const hz = Number(value);
+                const allowed = [1000, 10000, 100000];
+                return allowed.some((tick) => Math.abs(hz - tick) < 1) ? chartLabelForFrequency(hz) : '';
+              }
+            }
+          },
+          y: {
+            min: 0,
+            max: 24000,
+            border: { display: false },
+            grid: { color: 'rgba(142,195,172,.075)', drawTicks: false },
+            ticks: {
+              color: '#5c7b6d',
+              padding: 7,
+              maxTicksLimit: 5,
+              font: { family: '"IBM Plex Mono", monospace', size: 7.5 },
+              callback: (value) => `${Math.round(Number(value) / 1000)}k`
+            }
+          }
+        }
+      }
+    });
+    requestAnimationFrame(() => chart && chart.resize());
+  }
+
+  function syncChart(force = false) {
+    if (!chart) return;
+    const now = performance.now();
+    if (!force && now - lastChartSync < 80) {
+      queueChart();
+      return;
+    }
+    lastChartSync = now;
+    const colors = chartColors();
+    chart.data.datasets[0].data = state.baseline.map((d) => ({ x: d.f, y: d.z }));
+    chart.data.datasets[1].data = state.current.map((d) => ({ x: d.f, y: d.z }));
+    chart.data.datasets[1].borderColor = colors.line;
+    chart.data.datasets[1].backgroundColor = colors.fill;
+    if (els.currentLegend) els.currentLegend.style.background = colors.line;
+    chart.update('none');
+  }
+
+  function queueChart() {
+    state.chartDirty = true;
+    if (chartTimer) return;
+    chartTimer = setTimeout(() => {
+      chartTimer = null;
+      if (!state.chartDirty) return;
+      state.chartDirty = false;
+      syncChart(true);
+    }, 75);
+  }
+
+  // =====================================================================
+  //  5. ACTIONS
+  // =====================================================================
+  function setWorkspace(workspace, options = {}) {
+    state.workspace = workspace;
+    els.stage.dataset.workspace = workspace;
+    els.workspaceButtons.forEach((btn) => {
+      const active = btn.dataset.workspace === workspace;
+      btn.classList.toggle('is-active', active);
+      btn.setAttribute('aria-selected', String(active));
+    });
+    els.labelsBtn.disabled = workspace === 'measure';
+    els.labelsBtn.style.opacity = workspace === 'measure' ? '.35' : '';
+    els.probeTag.classList.toggle('is-visible', workspace === 'measure');
+    els.componentCard.classList.remove('is-open');
+    els.stageHintText.textContent = workspace === 'measure'
+      ? 'Kéo trực tiếp bút đo trên da · chọn điểm mẫu bên phải'
+      : 'Kéo xoay · cuộn để zoom · chạm linh kiện';
+    if (workspace === 'measure') {
+      setSession('Sẵn sàng đo', 'idle');
+      clearSelection3D();
+    }
+    if (!options.instant) queueChart();
+    applyWorkspaceCamera(workspace);
+    if (workspace === 'device') hideProbeTag();
+  }
+
+  function setCaseMode(mode) {
+    state.caseMode = mode;
+    els.caseTabButtons.forEach((btn) => btn.classList.toggle('is-active', btn.dataset.case === mode));
+    if (state.workspace !== 'device') {
+      setWorkspace('device');
+    } else {
+      applyWorkspaceCamera('device');
+      queueChart();
+    }
+    if (mode === 'bare' && els.componentCard.classList.contains('is-open')) {
+      closeComponent();
+    }
+    if (mode === 'bare') {
+      els.stageHintText.textContent = 'Bỏ vỏ · kéo xoay để quan sát pin và các module';
+    } else if (mode === 'xray') {
+      els.stageHintText.textContent = 'Nhìn xuyên vỏ · chạm vào linh kiện bên trong';
+    } else if (mode === 'open') {
+      els.stageHintText.textContent = 'Nắp đã mở · bút đo đặt cạnh pod, nối cáp qua grommet';
+    } else {
+      els.stageHintText.textContent = 'Kéo xoay · cuộn để zoom · chạm linh kiện';
+    }
+  }
+
+  function moveToPreset(kind) {
+    if (kind === 'healthy') {
+      setProbe(-2.08, 1.34);
+    } else {
+      setProbe(0, 0);
+    }
+    if (state.workspace !== 'measure') setWorkspace('measure');
+    setSession('Sẵn sàng đo', 'idle');
+  }
+
+  function ensureMeasureThen(callback) {
+    if (state.workspace === 'measure') {
+      callback();
+      return;
+    }
+    setWorkspace('measure');
+    showToast('Đang đưa bút đo ra khỏi hộp…');
+    setTimeout(callback, 760);
+  }
+
+  function withScanFeedback(button, workingLabel, task) {
+    if (state.busy) return;
+    state.busy = true;
+    const original = button.innerHTML;
+    button.disabled = true;
+    button.textContent = workingLabel;
+    setSession('Đang quét…', 'idle');
+    window.setTimeout(() => {
+      try { task(); } finally {
+        button.innerHTML = original;
+        button.disabled = false;
+        state.busy = false;
+      }
+    }, 560);
+  }
+
+  function runCalibrate() {
+    ensureMeasureThen(() => {
+      withScanFeedback(els.calibrateBtn, 'Đang lấy mốc…', () => {
+        state.baseline = state.current.map((d) => ({ f: d.f, z: d.z }));
+        state.baselineSource = state.coverage > 0.1 ? 'Đã lưu tại vùng có tổn thương' : 'Da lành';
+        state.result = null;
+        state.stale = false;
+        updateResultCard();
+        syncChart(true);
+        setSession('Đã hiệu chuẩn', 'ok');
+        if (state.coverage > 0.1) {
+          showToast('Đã lưu mốc — lưu ý vị trí này đang phủ một phần tổn thương.', 'warn');
+        } else {
+          showToast('Đã lưu phổ trở kháng mốc trên da lành.');
+        }
+      });
+    });
+  }
+
+  function runMeasure() {
+    ensureMeasureThen(() => {
+      withScanFeedback(els.measureBtn, 'Đang quét…', () => {
+        const reference = state.baseline;
+        const measured = state.current;
+        const rmse = calcRmse(reference, measured);
+        state.result = {
+          rmse,
+          abnormal: rmse > THRESHOLD,
+          coverage: state.coverage,
+          u: state.probe.u,
+          v: state.probe.v,
+          at: new Date()
+        };
+        state.stale = false;
+        updateResultCard();
+        syncChart(true);
+        if (rmse > THRESHOLD) {
+          setSession('Phát hiện bất thường', 'warning');
+          showToast(`RMSE ${fmt(rmse, 1)}% vượt ngưỡng 15% — phát hiện mô bất thường.`, 'warn');
+        } else {
+          setSession('Mô bình thường', 'ok');
+          showToast(`RMSE ${fmt(rmse, 1)}% — phổ trở kháng nằm trong ngưỡng bình thường.`);
+        }
+      });
+    });
+  }
+
+  // =====================================================================
+  //  6. COMPONENT CARD
+  // =====================================================================
+  function showComponent(key) {
+    const info = MODULE_INFO[key];
+    if (!info) return;
+    els.componentKicker.textContent = info.kicker;
+    els.componentName.textContent = info.name;
+    els.componentDesc.textContent = info.desc;
+    els.componentSpecs.innerHTML = info.specs.map(([label, value]) => (
+      `<div class="spec"><span>${label}</span><strong>${value}</strong></div>`
+    )).join('');
+    els.componentCard.classList.add('is-open');
+    setSelected3D(key);
+  }
+
+  function closeComponent() {
+    els.componentCard.classList.remove('is-open');
+    clearSelection3D();
+  }
+
+  // =====================================================================
+  //  7. EVENTS
+  // =====================================================================
+  function bindUiEvents() {
+    els.workspaceButtons.forEach((btn) => {
+      btn.addEventListener('click', () => setWorkspace(btn.dataset.workspace));
+    });
+    els.caseTabButtons.forEach((btn) => {
+      btn.addEventListener('click', () => setCaseMode(btn.dataset.case));
+    });
+    els.labelsBtn.addEventListener('click', () => {
+      state.labels = !state.labels;
+      els.labelsBtn.classList.toggle('is-active', state.labels);
+      els.labelsBtn.setAttribute('aria-pressed', String(state.labels));
+      updateLabelVisibility3D();
+    });
+    els.resetViewBtn.addEventListener('click', () => resetCamera());
+    els.componentClose.addEventListener('click', closeComponent);
+    els.calibrateBtn.addEventListener('click', runCalibrate);
+    els.measureBtn.addEventListener('click', runMeasure);
+    els.presetButtons.forEach((btn) => {
+      btn.addEventListener('click', () => moveToPreset(btn.dataset.preset));
+    });
+    document.addEventListener('keydown', (event) => {
+      if (event.key === 'Escape') closeComponent();
+      if (state.workspace !== 'measure') return;
+      const step = event.shiftKey ? 0.25 : 0.1;
+      if (event.key === 'ArrowLeft') { event.preventDefault(); setProbe(state.probe.u - step, state.probe.v); }
+      if (event.key === 'ArrowRight') { event.preventDefault(); setProbe(state.probe.u + step, state.probe.v); }
+      if (event.key === 'ArrowUp') { event.preventDefault(); setProbe(state.probe.u, state.probe.v - step); }
+      if (event.key === 'ArrowDown') { event.preventDefault(); setProbe(state.probe.u, state.probe.v + step); }
+    });
+  }
+
+  // =====================================================================
+  //  8. THREE.JS · THIẾT BỊ, BÚT ĐO VÀ DA
+  // =====================================================================
+  let renderer = null;
+  let scene = null;
+  let camera = null;
+  let device = null;
+  let internalRoot = null;
+  let lidPivot = null;
+  let lidGroup = null;
+  let probe = null;
+  let skinRoot = null;
+  let currentGroup = null;
+  let currentParticles = [];
+  let contactRings = [];
+  let lesionGlow = null;
+  let skinMarker = null;
+  let skinLesionLabel = null;
+  let cableMesh = null;
+  let selectionBox = null;
+  let selectedGroup = null;
+  let shellMat = null;
+  let shellFadeMats = [];
+  let shellGroups = [];
+  let strapGroup = null;
+  let labelSprites = [];
+  let partLabels = [];
+  let selectableMeshes = [];
+  let probeHitMeshes = [];
+  let probeDockAnchor = null;
+  let probeGoalPos = null;
+  let probeGoalQuat = null;
+  let cameraTarget = null;
+  let cameraGoalTarget = null;
+  let currentRaycaster = null;
+  let currentMouse = null;
+  let skinPlane = null;
+  let uiProjectVector = null;
+  let probeTagVisible = false;
+  let lastCableCap = null;
+  let lastCablePort = null;
+  let lastCableMode = null;
+  let cableFrame = 0;
+  let resizeObserver = null;
+
+  let camTheta = 0.62;
+  let camPhi = 1.02;
+  let camZoom = 1;
+  let camBaseDist = 15.2;
+  let camGoalTheta = 0.62;
+  let camGoalPhi = 1.02;
+
+  let clock = null;
+  const pointerMap = new Map();
+  let orbitPointer = null;
+  let lastPointer = { x: 0, y: 0 };
+  let pointerTravel = 0;
+  let pinchStart = 0;
+  let pinchZoomStart = 1;
+  let draggingProbe = false;
+  let dragOffset = { x: 0, z: 0 };
+  let hoverCheckAt = 0;
+
+  const COL = {
+    shell: 0x1c2a25,
+    shellEdge: 0x4b6659,
+    rubber: 0x07110e,
+    brass: 0xd6a94f,
+    gold: 0xf0c96b,
+    copper: 0xb87442,
+    mint: 0x5cebb3,
+    cyan: 0x6ed8ff,
+    amber: 0xf4b65f,
+    red: 0xff7b7b,
+    silver: 0xcbd3d1,
+    skin: 0xe7b2a2,
+    dermis: 0xb96f65,
+    hypodermis: 0xd3b99b,
+    lesion: 0x783c35
+  };
+
+  function std(color, opts = {}) {
+    return new THREE.MeshStandardMaterial(Object.assign({
+      color, roughness: 0.55, metalness: 0.06
+    }, opts));
+  }
+
+  function physical(color, opts = {}) {
+    return new THREE.MeshPhysicalMaterial(Object.assign({
+      color, roughness: 0.42, metalness: 0.12, clearcoat: 0.45, clearcoatRoughness: 0.42
+    }, opts));
+  }
+
+  function canvasTexture(width, height, draw, filter = THREE.LinearFilter) {
+    const canvas = document.createElement('canvas');
+    canvas.width = width;
+    canvas.height = height;
+    const ctx = canvas.getContext('2d');
+    draw(ctx, width, height);
+    const texture = new THREE.CanvasTexture(canvas);
+    texture.encoding = THREE.sRGBEncoding;
+    texture.anisotropy = renderer && renderer.capabilities ? Math.min(8, renderer.capabilities.getMaxAnisotropy()) : 4;
+    texture.minFilter = filter;
+    texture.magFilter = THREE.LinearFilter;
+    return texture;
+  }
+
+  function mulberry32(seed) {
+    return function () {
+      let t = seed += 0x6D2B79F5;
+      t = Math.imul(t ^ t >>> 15, t | 1);
+      t ^= t + Math.imul(t ^ t >>> 7, t | 61);
+      return ((t ^ t >>> 14) >>> 0) / 4294967296;
+    };
+  }
+
+  function roundedShape(w, d, r) {
+    const s = new THREE.Shape();
+    const x = -w / 2;
+    const y = -d / 2;
+    s.moveTo(x + r, y);
+    s.lineTo(x + w - r, y);
+    s.quadraticCurveTo(x + w, y, x + w, y + r);
+    s.lineTo(x + w, y + d - r);
+    s.quadraticCurveTo(x + w, y + d, x + w - r, y + d);
+    s.lineTo(x + r, y + d);
+    s.quadraticCurveTo(x, y + d, x, y + d - r);
+    s.lineTo(x, y + r);
+    s.quadraticCurveTo(x, y, x + r, y);
+    return s;
+  }
+
+  function roundedSlab(w, d, r, h, material, bevel = 0.035) {
+    const shape = roundedShape(w, d, r);
+    const geometry = new THREE.ExtrudeGeometry(shape, {
+      depth: h,
+      bevelEnabled: true,
+      bevelThickness: bevel,
+      bevelSize: bevel,
+      bevelSegments: 3,
+      curveSegments: 20,
+      steps: 1
+    });
+    geometry.center();
+    geometry.rotateX(-Math.PI / 2);
+    const mesh = new THREE.Mesh(geometry, material);
+    mesh.castShadow = true;
+    mesh.receiveShadow = true;
+    return mesh;
+  }
+
+  function roundedRing(w, d, r, wall, h, material, bevel = 0.025) {
+    const outer = roundedShape(w, d, r);
+    const inner = roundedShape(w - wall * 2, d - wall * 2, Math.max(0.08, r - wall * 0.8));
+    outer.holes.push(inner);
+    const geometry = new THREE.ExtrudeGeometry(outer, {
+      depth: h,
+      bevelEnabled: true,
+      bevelThickness: bevel,
+      bevelSize: bevel,
+      bevelSegments: 2,
+      curveSegments: 20,
+      steps: 1
+    });
+    geometry.center();
+    geometry.rotateX(-Math.PI / 2);
+    const mesh = new THREE.Mesh(geometry, material);
+    mesh.castShadow = true;
+    mesh.receiveShadow = true;
+    return mesh;
+  }
+
+  function circularRing(outerR, innerR, h, material, bevel = 0.025) {
+    const shape = new THREE.Shape();
+    shape.absarc(0, 0, outerR, 0, Math.PI * 2, false);
+    const hole = new THREE.Path();
+    hole.absarc(0, 0, innerR, 0, Math.PI * 2, true);
+    shape.holes.push(hole);
+    const geometry = new THREE.ExtrudeGeometry(shape, {
+      depth: h,
+      bevelEnabled: true,
+      bevelThickness: bevel,
+      bevelSize: bevel,
+      bevelSegments: 3,
+      curveSegments: 64,
+      steps: 1
+    });
+    geometry.center();
+    geometry.rotateX(-Math.PI / 2);
+    const mesh = new THREE.Mesh(geometry, material);
+    mesh.castShadow = true;
+    mesh.receiveShadow = true;
+    return mesh;
+  }
+
+  function markShell(mesh) {
+    mesh.userData.shell = true;
+    if (mesh.material && shellFadeMats.indexOf(mesh.material) === -1) shellFadeMats.push(mesh.material);
+    mesh.castShadow = true;
+    mesh.receiveShadow = true;
+    return mesh;
+  }
+
+  function addBox(parent, w, h, d, material, x = 0, y = 0, z = 0, cast = true) {
+    const mesh = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), material);
+    mesh.position.set(x, y, z);
+    mesh.castShadow = cast;
+    mesh.receiveShadow = cast;
+    parent.add(mesh);
+    return mesh;
+  }
+
+  function addCylinder(parent, rt, rb, h, material, x, y, z, axis = 'y', segments = 28) {
+    const mesh = new THREE.Mesh(new THREE.CylinderGeometry(rt, rb, h, segments), material);
+    mesh.position.set(x, y, z);
+    if (axis === 'x') mesh.rotation.z = Math.PI / 2;
+    if (axis === 'z') mesh.rotation.x = Math.PI / 2;
+    mesh.castShadow = true;
+    mesh.receiveShadow = true;
+    parent.add(mesh);
+    return mesh;
+  }
+
+  function addTube(parent, points, color, radius = 0.018, opacity = 1) {
+    const curve = new THREE.CatmullRomCurve3(points.map((p) => new THREE.Vector3(p[0], p[1], p[2])));
+    const geometry = new THREE.TubeGeometry(curve, 28, radius, 6, false);
+    const mat = new THREE.MeshStandardMaterial({
+      color, roughness: 0.6, metalness: 0.05, transparent: opacity < 1, opacity
+    });
+    const mesh = new THREE.Mesh(geometry, mat);
+    mesh.castShadow = true;
+    mesh.receiveShadow = true;
+    parent.add(mesh);
+    return mesh;
+  }
+
+  function makeLabelSprite(text, color = '#5cebb3', scale = 1, small = false) {
+    const width = 512;
+    const height = 128;
+    const canvas = document.createElement('canvas');
+    canvas.width = width;
+    canvas.height = height;
+    const ctx = canvas.getContext('2d');
+    const x = 8;
+    const y = 14;
+    const w = width - 16;
+    const h = height - 28;
+    const r = 22;
+    ctx.beginPath();
+    ctx.moveTo(x + r, y);
+    ctx.lineTo(x + w - r, y);
+    ctx.quadraticCurveTo(x + w, y, x + w, y + r);
+    ctx.lineTo(x + w, y + h - r);
+    ctx.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
+    ctx.lineTo(x + r, y + h);
+    ctx.quadraticCurveTo(x, y + h, x, y + h - r);
+    ctx.lineTo(x, y + r);
+    ctx.quadraticCurveTo(x, y, x + r, y);
+    ctx.closePath();
+    ctx.fillStyle = 'rgba(4,17,12,.9)';
+    ctx.fill();
+    ctx.strokeStyle = 'rgba(150,232,200,.3)';
+    ctx.lineWidth = 2;
+    ctx.stroke();
+    ctx.fillStyle = color;
+    ctx.beginPath();
+    ctx.arc(38, 64, 7, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = '#eaf8f1';
+    ctx.font = '600 34px "Be Vietnam Pro", "Segoe UI", sans-serif';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(text, 58, 65);
+    const texture = new THREE.CanvasTexture(canvas);
+    texture.encoding = THREE.sRGBEncoding;
+    texture.anisotropy = 4;
+    const material = new THREE.SpriteMaterial({
+      map: texture, transparent: true, depthTest: false, depthWrite: false
+    });
+    const sprite = new THREE.Sprite(material);
+    const scaleFactor = small ? 0.72 : 1;
+    sprite.scale.set(2.9 * scale * scaleFactor, 0.72 * scale * scaleFactor, 1);
+    sprite.renderOrder = 40;
+    return sprite;
+  }
+
+  function makeSkinLabels() {
+    const lesion = makeLabelSprite('TỔN THƯƠNG', '#ff9a84', 0.78, true);
+    lesion.position.set(0.9, 1.42, -1.65);
+    skinRoot.add(lesion);
+    skinLesionLabel = lesion;
+    return [lesion];
+  }
+
+  // --------------------------- textures ---------------------------
+  function createModuleTexture(w, d, label, color) {
+    const cw = 640;
+    const ch = Math.max(220, Math.round(cw * d / w));
+    return canvasTexture(cw, ch, (ctx, W, H) => {
+      const rnd = mulberry32(72 + label.length);
+      ctx.fillStyle = color || '#1a4d9e';
+      ctx.fillRect(0, 0, W, H);
+      const grad = ctx.createLinearGradient(0, 0, W, H);
+      grad.addColorStop(0, 'rgba(255,255,255,.1)');
+      grad.addColorStop(0.55, 'rgba(255,255,255,0)');
+      grad.addColorStop(1, 'rgba(0,0,0,.24)');
+      ctx.fillStyle = grad;
+      ctx.fillRect(0, 0, W, H);
+
+      // solder-mask variation, no copper artwork from the old board
+      for (let i = 0; i < 80; i++) {
+        ctx.fillStyle = `rgba(198,230,255,${0.008 + rnd() * 0.025})`;
+        ctx.beginPath();
+        ctx.arc(rnd() * W, rnd() * H, 5 + rnd() * 28, 0, Math.PI * 2);
+        ctx.fill();
+      }
+
+      // edge pads and drill marks
+      ctx.fillStyle = 'rgba(226,190,104,.85)';
+      for (let i = 0; i < 7; i++) {
+        const x = 42 + i * (W - 84) / 6;
+        ctx.beginPath();
+        ctx.arc(x, 22, 4.5, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.beginPath();
+        ctx.arc(x, H - 22, 4.5, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      ctx.strokeStyle = 'rgba(230,246,255,.45)';
+      ctx.lineWidth = 2;
+      ctx.strokeRect(16, 16, W - 32, H - 32);
+
+      // white silkscreen label
+      ctx.fillStyle = 'rgba(240,249,255,.92)';
+      ctx.font = '600 25px "IBM Plex Mono", monospace';
+      ctx.fillText((label || 'MODULE').toUpperCase(), 30, H - 34);
+      ctx.fillStyle = 'rgba(207,232,250,.52)';
+      ctx.font = '500 15px "IBM Plex Mono", monospace';
+      ctx.fillText('CIM NG · HARDWARE', 30, 45);
+
+      // small solder pads at component landings
+      for (let i = 0; i < 16; i++) {
+        const x = 25 + rnd() * (W - 50);
+        const y = 60 + rnd() * (H - 130);
+        ctx.fillStyle = 'rgba(228,190,94,.55)';
+        ctx.fillRect(x, y, 7 + rnd() * 8, 4 + rnd() * 6);
+      }
+    });
+  }
+
+  function createPerfboardTexture() {
+    return canvasTexture(1024, 640, (ctx, W, H) => {
+      const rnd = mulberry32(204);
+      const g = ctx.createLinearGradient(0, 0, W, H);
+      g.addColorStop(0, '#a9cda9');
+      g.addColorStop(0.5, '#96bf9d');
+      g.addColorStop(1, '#83ae8b');
+      ctx.fillStyle = g;
+      ctx.fillRect(0, 0, W, H);
+      // fiberglass weave
+      ctx.strokeStyle = 'rgba(65,108,76,.12)';
+      ctx.lineWidth = 1;
+      for (let x = 0; x < W; x += 9) {
+        ctx.beginPath();
+        ctx.moveTo(x, 0);
+        ctx.lineTo(x + 80, H);
+        ctx.stroke();
+      }
+      for (let y = 0; y < H; y += 9) {
+        ctx.beginPath();
+        ctx.moveTo(0, y);
+        ctx.lineTo(W, y + 50);
+        ctx.stroke();
+      }
+      for (let i = 0; i < 650; i++) {
+        ctx.fillStyle = `rgba(255,255,255,${rnd() * 0.05})`;
+        ctx.fillRect(rnd() * W, rnd() * H, 2, 2);
+      }
+    });
+  }
+
+  function createBatteryTexture() {
+    return canvasTexture(1024, 680, (ctx, W, H) => {
+      const g = ctx.createLinearGradient(0, 0, W, H);
+      g.addColorStop(0, '#eef0e6');
+      g.addColorStop(1, '#d7deda');
+      ctx.fillStyle = g;
+      ctx.fillRect(0, 0, W, H);
+      const rnd = mulberry32(7);
+      for (let i = 0; i < 700; i++) {
+        ctx.fillStyle = `rgba(60,80,70,${rnd() * 0.035})`;
+        ctx.fillRect(rnd() * W, rnd() * H, 1.4, 1.4);
+      }
+      ctx.fillStyle = '#173a2c';
+      ctx.font = '700 118px "Be Vietnam Pro", sans-serif';
+      ctx.fillText('LiPo', 64, 158);
+      ctx.font = '500 42px "IBM Plex Mono", monospace';
+      ctx.fillText('3.7 V  ·  1000 mAh', 66, 220);
+      ctx.strokeStyle = 'rgba(23,58,44,.28)';
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.moveTo(64, 262);
+      ctx.lineTo(W - 64, 262);
+      ctx.stroke();
+      ctx.fillStyle = '#244a3a';
+      ctx.font = '600 27px "IBM Plex Mono", monospace';
+      ctx.fillText('AURA CELL / LIP-402730', 66, 320);
+      ctx.fillStyle = '#4f6e60';
+      ctx.font = '400 24px "Be Vietnam Pro", sans-serif';
+      ctx.fillText('Do not puncture · Do not short circuit', 66, 360);
+      // charge gauge
+      ctx.fillStyle = '#32624f';
+      ctx.fillRect(66, 430, 360, 18);
+      ctx.fillStyle = '#1f8e69';
+      ctx.fillRect(66, 430, 285, 18);
+      ctx.fillStyle = '#244a3a';
+      ctx.font = '500 22px "IBM Plex Mono", monospace';
+      ctx.fillText('86%', 440, 447);
+      // barcode
+      for (let i = 0; i < 50; i++) {
+        const x = 66 + i * 9;
+        ctx.fillStyle = i % 4 ? '#203b30' : 'transparent';
+        ctx.fillRect(x, 500, i % 3 ? 3 : 6, 88);
+      }
+      ctx.fillStyle = '#5d7367';
+      ctx.font = '500 19px "IBM Plex Mono", monospace';
+      ctx.fillText('AURA-BAT-1000', 66, 622);
+    });
+  }
+
+  function createSkinTexture() {
+    return canvasTexture(1024, 1024, (ctx, W, H) => {
+      const rnd = mulberry32(19);
+      ctx.clearRect(0, 0, W, H);
+      const margin = 26;
+      const r = 118;
+      ctx.beginPath();
+      ctx.moveTo(margin + r, margin);
+      ctx.lineTo(W - margin - r, margin);
+      ctx.quadraticCurveTo(W - margin, margin, W - margin, margin + r);
+      ctx.lineTo(W - margin, H - margin - r);
+      ctx.quadraticCurveTo(W - margin, H - margin, W - margin - r, H - margin);
+      ctx.lineTo(margin + r, H - margin);
+      ctx.quadraticCurveTo(margin, H - margin, margin, H - margin - r);
+      ctx.lineTo(margin, margin + r);
+      ctx.quadraticCurveTo(margin, margin, margin + r, margin);
+      ctx.closePath();
+      const g = ctx.createLinearGradient(0, 0, W, H);
+      g.addColorStop(0, '#edbaa8');
+      g.addColorStop(0.45, '#e7ac9b');
+      g.addColorStop(1, '#d99b8c');
+      ctx.fillStyle = g;
+      ctx.fill();
+      ctx.save();
+      ctx.clip();
+      for (let i = 0; i < 900; i++) {
+        const x = rnd() * W;
+        const y = rnd() * H;
+        const rad = 2 + rnd() * 20;
+        ctx.fillStyle = `rgba(${160 + rnd() * 40},${80 + rnd() * 40},${75 + rnd() * 35},${0.015 + rnd() * 0.045})`;
+        ctx.beginPath();
+        ctx.arc(x, y, rad, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      for (let i = 0; i < 280; i++) {
+        ctx.fillStyle = `rgba(100,45,40,${0.03 + rnd() * 0.07})`;
+        ctx.beginPath();
+        ctx.arc(rnd() * W, rnd() * H, 0.7 + rnd() * 1.3, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      ctx.strokeStyle = 'rgba(126,62,52,.09)';
+      ctx.lineWidth = 1.2;
+      for (let i = 0; i < 23; i++) {
+        const x = rnd() * W;
+        const y = rnd() * H;
+        ctx.beginPath();
+        ctx.moveTo(x, y);
+        ctx.bezierCurveTo(x + 40, y - 22, x + 80, y - 16, x + 110, y - 30);
+        ctx.stroke();
+      }
+      const vg = ctx.createRadialGradient(W * 0.5, H * 0.5, W * 0.26, W * 0.5, H * 0.5, W * 0.7);
+      vg.addColorStop(0, 'rgba(0,0,0,0)');
+      vg.addColorStop(1, 'rgba(105,45,33,.17)');
+      ctx.fillStyle = vg;
+      ctx.fillRect(0, 0, W, H);
+      ctx.restore();
+    });
+  }
+
+  function createLesionTexture() {
+    return canvasTexture(512, 512, (ctx, W, H) => {
+      const rnd = mulberry32(41);
+      const g = ctx.createRadialGradient(W * 0.46, H * 0.44, 8, W * 0.5, H * 0.5, W * 0.54);
+      g.addColorStop(0, '#9e5a48');
+      g.addColorStop(0.45, '#7d3e35');
+      g.addColorStop(0.8, '#5b2b27');
+      g.addColorStop(1, '#4b2420');
+      ctx.fillStyle = g;
+      ctx.fillRect(0, 0, W, H);
+      for (let i = 0; i < 190; i++) {
+        ctx.fillStyle = `rgba(${45 + rnd() * 35},${15 + rnd() * 20},${15 + rnd() * 18},${0.06 + rnd() * 0.15})`;
+        ctx.beginPath();
+        ctx.arc(rnd() * W, rnd() * H, 2 + rnd() * 16, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      for (let i = 0; i < 12; i++) {
+        ctx.strokeStyle = `rgba(173,94,77,${0.07 + rnd() * 0.1})`;
+        ctx.lineWidth = 1 + rnd() * 3;
+        ctx.beginPath();
+        const x = rnd() * W;
+        const y = rnd() * H;
+        ctx.moveTo(x, y);
+        ctx.quadraticCurveTo(x + 80, y + 40, x + 120, y + 100);
+        ctx.stroke();
+      }
+    });
+  }
+
+  function createStrapTexture() {
+    const texture = canvasTexture(256, 1024, (ctx, W, H) => {
+      ctx.fillStyle = '#5e347f';
+      ctx.fillRect(0, 0, W, H);
+      ctx.strokeStyle = 'rgba(30,15,45,.35)';
+      ctx.lineWidth = 2;
+      for (let y = 0; y < H; y += 9) {
+        ctx.beginPath();
+        ctx.moveTo(0, y);
+        ctx.lineTo(W, y + 10);
+        ctx.stroke();
+      }
+      ctx.strokeStyle = 'rgba(201,162,230,.16)';
+      ctx.lineWidth = 1;
+      for (let y = 0; y < H; y += 9) {
+        ctx.beginPath();
+        ctx.moveTo(0, y + 4);
+        ctx.lineTo(W, y + 14);
+        ctx.stroke();
+      }
+      ctx.strokeStyle = 'rgba(25,12,35,.5)';
+      ctx.lineWidth = 10;
+      ctx.strokeRect(16, 0, W - 32, H);
+      ctx.strokeStyle = 'rgba(236,211,250,.45)';
+      ctx.lineWidth = 2;
+      ctx.setLineDash([5, 9]);
+      ctx.beginPath();
+      ctx.moveTo(22, 0);
+      ctx.lineTo(22, H);
+      ctx.moveTo(W - 22, 0);
+      ctx.lineTo(W - 22, H);
+      ctx.stroke();
+      ctx.setLineDash([]);
+    });
+    texture.wrapS = THREE.RepeatWrapping;
+    texture.wrapT = THREE.RepeatWrapping;
+    texture.repeat.set(1, 1.8);
+    return texture;
+  }
+
+  function createProbeBodyTexture() {
+    return canvasTexture(1024, 512, (ctx, W, H) => {
+      const g = ctx.createLinearGradient(0, 0, W, 0);
+      g.addColorStop(0, '#dfe5dc');
+      g.addColorStop(0.2, '#f3f5ee');
+      g.addColorStop(0.7, '#eef1e8');
+      g.addColorStop(1, '#d7dfd4');
+      ctx.fillStyle = g;
+      ctx.fillRect(0, 0, W, H);
+      ctx.fillStyle = '#17372c';
+      ctx.fillRect(0, 0, W, 18);
+      ctx.fillRect(0, H - 18, W, 18);
+      ctx.fillStyle = '#234a3a';
+      ctx.font = '700 84px "Be Vietnam Pro", sans-serif';
+      ctx.fillText('AURA', 74, 210);
+      ctx.fillStyle = '#5f7f70';
+      ctx.font = '500 30px "IBM Plex Mono", monospace';
+      ctx.fillText('2-POGO EIS PROBE', 78, 268);
+      ctx.fillStyle = '#2caa7c';
+      ctx.fillRect(78, 306, 190, 8);
+      ctx.fillStyle = '#6d8578';
+      ctx.font = '400 22px "IBM Plex Mono", monospace';
+      ctx.fillText('DRIVE   SENSE     /     1–100 kHz', 78, 358);
+      ctx.strokeStyle = 'rgba(70,100,84,.18)';
+      ctx.lineWidth = 2;
+      ctx.strokeRect(35, 35, W - 70, H - 70);
+      // seam and a small mint light
+      ctx.fillStyle = 'rgba(30,80,60,.12)';
+      ctx.fillRect(W * 0.76, 40, 8, H - 80);
+      ctx.fillStyle = 'rgba(75,235,178,.85)';
+      ctx.beginPath();
+      ctx.arc(W - 116, 398, 9, 0, Math.PI * 2);
+      ctx.fill();
+    });
+  }
+
+  function createLogoTexture() {
+    return canvasTexture(1024, 320, (ctx, W, H) => {
+      ctx.clearRect(0, 0, W, H);
+      ctx.fillStyle = '#173b2d';
+      ctx.font = '800 150px "Be Vietnam Pro", sans-serif';
+      ctx.fillText('Cim Ng', 42, 178);
+      ctx.fillStyle = 'rgba(23,64,47,.88)';
+      ctx.font = '600 33px "Be Vietnam Pro", sans-serif';
+      ctx.fillText('Thiết bị phần cứng bổ trợ của app', 48, 246);
+      ctx.strokeStyle = 'rgba(32,130,96,.55)';
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.moveTo(770, 208);
+      ctx.lineTo(808, 208);
+      ctx.lineTo(824, 174);
+      ctx.lineTo(846, 246);
+      ctx.lineTo(868, 190);
+      ctx.lineTo(888, 208);
+      ctx.lineTo(986, 208);
+      ctx.stroke();
+      ctx.save(); ctx.globalCompositeOperation = 'destination-out'; ctx.beginPath(); ctx.ellipse(792, 192, 76, 68, 0, 0, Math.PI * 2); ctx.fill(); ctx.restore();
+      ctx.fillStyle = 'rgba(43,165,119,.82)';
+      ctx.beginPath();
+      ctx.arc(900, 84, 9, 0, Math.PI * 2);
+      ctx.fill();
+    });
+  }
+
+  // --------------------------- models ---------------------------
+  function makePcbMesh(w, d, color, label) {
+    const texture = createModuleTexture(w, d, label, color || '#17458d');
+    const top = new THREE.MeshStandardMaterial({ map: texture, roughness: 0.5, metalness: 0.1 });
+    const edge = std(0x0b2b5a, { roughness: 0.62, metalness: 0.12 });
+    const mesh = new THREE.Mesh(new THREE.BoxGeometry(w, 0.1, d), [edge, edge, top, top, edge, edge]);
+    mesh.castShadow = true;
+    mesh.receiveShadow = true;
+    return mesh;
+  }
+
+  function addHeaderPins(group, x, z, count, along = 'x', y = 0.13) {
+    const pitch = 0.18;
+    const span = pitch * count;
+    const black = std(0x10161b, { roughness: 0.62 });
+    const gold = std(COL.gold, { metalness: 0.82, roughness: 0.24 });
+    addBox(group, along === 'x' ? span : 0.12, 0.075, along === 'x' ? 0.12 : span, black, x, y, z, false);
+    for (let i = 0; i < count; i++) {
+      const offset = -span / 2 + pitch / 2 + i * pitch;
+      addBox(group, 0.035, 0.065, 0.035, gold, along === 'x' ? x + offset : x, y + 0.065, along === 'x' ? z : z + offset, false);
+    }
+  }
+
+  function moduleGroup(key, w, d, color, label) {
+    const group = new THREE.Group();
+    group.userData.infoKey = key;
+    const board = makePcbMesh(w, d, color, label);
+    board.position.y = 0.05;
+    group.add(board);
+    // Header legs pass through the perfboard below.
+    [[-w / 2 + 0.14, -d / 2 + 0.14], [w / 2 - 0.14, -d / 2 + 0.14], [-w / 2 + 0.14, d / 2 - 0.14], [w / 2 - 0.14, d / 2 - 0.14]].forEach(([x, z]) => {
+      addCylinder(group, 0.026, 0.026, 0.14, std(COL.gold, { metalness: 0.78, roughness: 0.28 }), x, -0.015, z, 'y', 7);
+      addCylinder(group, 0.045, 0.045, 0.018, std(0xc7c9b9, { metalness: 0.7, roughness: 0.3 }), x, 0.105, z, 'y', 8);
+    });
+    return group;
+  }
+
+  function addChip(group, w, h, d, x, y, z, color = 0x121713) {
+    addBox(group, w, h, d, std(color, { roughness: 0.46, metalness: 0.2 }), x, y, z);
+    const pins = Math.max(3, Math.floor(w / 0.12));
+    for (let i = 0; i < pins; i++) {
+      const px = x - w / 2 + 0.08 + i * (w - 0.16) / Math.max(1, pins - 1);
+      addBox(group, 0.035, 0.018, d + 0.08, std(0xc7c9b9, { metalness: 0.65, roughness: 0.38 }), px, y - h / 2 - 0.008, z, false);
+    }
+  }
+
+  function addPerfboardHoles(boardGroup, x, z, w, d) {
+    const pitch = 0.3;
+    const cols = Math.floor(w / pitch);
+    const rows = Math.floor(d / pitch);
+    const count = cols * rows;
+    const padGeo = new THREE.CylinderGeometry(0.065, 0.065, 0.008, 9);
+    const holeGeo = new THREE.CylinderGeometry(0.035, 0.035, 0.012, 7);
+    const goldMat = new THREE.MeshStandardMaterial({ color: 0xc7a14d, metalness: 0.78, roughness: 0.3 });
+    const holeMat = new THREE.MeshStandardMaterial({ color: 0x18221a, roughness: 0.82, metalness: 0.1 });
+    const topPads = new THREE.InstancedMesh(padGeo, goldMat, count);
+    const bottomPads = new THREE.InstancedMesh(padGeo, goldMat, count);
+    const topHoles = new THREE.InstancedMesh(holeGeo, holeMat, count);
+    const bottomHoles = new THREE.InstancedMesh(holeGeo, holeMat, count);
+    [topPads, bottomPads, topHoles, bottomHoles].forEach((mesh) => {
+      mesh.castShadow = false;
+      mesh.receiveShadow = false;
+      boardGroup.add(mesh);
+    });
+    const matrix = new THREE.Matrix4();
+    let idx = 0;
+    for (let c = 0; c < cols; c++) {
+      for (let r = 0; r < rows; r++) {
+        const px = x - w / 2 + pitch / 2 + c * pitch;
+        const pz = z - d / 2 + pitch / 2 + r * pitch;
+        matrix.makeTranslation(px, 0.065, pz);
+        topPads.setMatrixAt(idx, matrix);
+        matrix.makeTranslation(px, -0.065, pz);
+        bottomPads.setMatrixAt(idx, matrix);
+        matrix.makeTranslation(px, 0.07, pz);
+        topHoles.setMatrixAt(idx, matrix);
+        matrix.makeTranslation(px, -0.07, pz);
+        bottomHoles.setMatrixAt(idx, matrix);
+        idx++;
+      }
+    }
+    [topPads, bottomPads, topHoles, bottomHoles].forEach((mesh) => { mesh.instanceMatrix.needsUpdate = true; });
+  }
+
+  function holeDisc(r, depth, hx, hz, hr) {
+    const s = new THREE.Shape();
+    s.absarc(0, 0, r, 0, Math.PI * 2, false);
+    const h = new THREE.Path();
+    h.absarc(hx, -hz, hr, 0, Math.PI * 2, true);
+    s.holes.push(h);
+    const g = new THREE.ExtrudeGeometry(s, { depth, bevelEnabled: false, curveSegments: 64 });
+    g.rotateX(-Math.PI / 2);
+    return g;
+  }
+
+  function buildCase() {
+    const CASE_R = 3.3;
+    const INNER_R = 3.0;
+
+    const caseRoot = new THREE.Group();
+    caseRoot.userData.infoKey = 'case';
+    device.add(caseRoot);
+
+    // ---- đáy và thành vỏ tròn ----
+    const base = markShell(new THREE.Mesh(new THREE.CylinderGeometry(CASE_R, CASE_R, 0.14, 64), shellMat));
+    base.position.y = 0.07;
+    caseRoot.add(base);
+
+    const wall = markShell(circularRing(CASE_R, INNER_R, 0.92, shellMat, 0.025));
+    wall.position.y = 0.64;
+    caseRoot.add(wall);
+
+    const rim = markShell(new THREE.Mesh(new THREE.TorusGeometry(3.14, 0.07, 9, 64), shellMat));
+    rim.rotation.x = Math.PI / 2;
+    rim.position.y = 1.11;
+    caseRoot.add(rim);
+    const lidSeam = markShell(new THREE.Mesh(new THREE.TorusGeometry(3.12, 0.018, 8, 64), std(0x26322d, { roughness: 0.75, metalness: 0.1 })));
+    lidSeam.rotation.x = Math.PI / 2;
+    lidSeam.position.y = 1.12;
+    caseRoot.add(lidSeam);
+
+    const liner = new THREE.Mesh(
+      new THREE.CylinderGeometry(2.96, 2.96, 0.018, 64),
+      std(0xd5ddd7, { roughness: 0.9, metalness: 0.02 })
+    );
+    liner.position.y = 0.145;
+    liner.receiveShadow = true;
+    caseRoot.add(liner);
+    shellFadeMats.push(liner.material);
+
+    // chân đế nhỏ
+    [0, 2.1, 4.2].forEach((angle) => {
+      const x = Math.cos(angle) * 2.7;
+      const z = Math.sin(angle) * 2.7;
+      const foot = addCylinder(caseRoot, 0.14, 0.17, 0.06, std(COL.rubber, { roughness: 0.9 }), x, -0.005, z, 'y', 16);
+      markShell(foot);
+    });
+
+    // ---- cổng USB-C, nút nguồn, khe tản nhiệt ----
+    const portWell = markShell(roundedSlab(0.12, 0.5, 0.14, 0.22, std(0x050a08, { roughness: 0.75 }), 0.016));
+    portWell.position.set(-3.33, 0.75, 0.12);
+    portWell.rotation.y = Math.PI / 2;
+    caseRoot.add(portWell);
+    const portMetal = new THREE.Mesh(new THREE.BoxGeometry(0.09, 0.12, 0.36), std(0x8b9692, { metalness: 0.8, roughness: 0.26 }));
+    portMetal.position.set(-3.34, 0.77, 0.12);
+    caseRoot.add(portMetal);
+    markShell(portMetal);
+
+    const button = addCylinder(caseRoot, 0.17, 0.17, 0.09, std(0x121a16, { roughness: 0.65 }), 3.33, 0.74, 0.65, 'x', 18);
+    markShell(button);
+    const buttonRing = addCylinder(caseRoot, 0.21, 0.21, 0.035, std(0x8da397, { metalness: 0.4, roughness: 0.38 }), 3.31, 0.74, 0.65, 'x', 18);
+    markShell(buttonRing);
+
+    for (let i = 0; i < 3; i++) {
+      const slot = addBox(caseRoot, 0.03, 0.07, 0.24, std(0x08100d, { roughness: 0.8 }), 3.33, 0.5, -0.95 + i * 0.35, false);
+      markShell(slot);
+    }
+
+    // grommet cho cáp bút đo
+    const grommet = addCylinder(caseRoot, 0.11, 0.11, 0.07, std(0x101713, { roughness: 0.55 }), 2.35, 0.82, 1.35, 'z', 18);
+    markShell(grommet);
+    const grommetHole = addCylinder(caseRoot, 0.055, 0.055, 0.08, std(0x030604, { roughness: 0.7 }), 2.35, 0.82, 1.37, 'z', 14);
+    markShell(grommetHole);
+
+    // ---- bản lề trung tâm kiểu compact, nắp tròn quay đúng mép sau ----
+    const hingeMat = std(0x66736c, { metalness: 0.68, roughness: 0.28 });
+    const hinge = new THREE.Mesh(new THREE.CylinderGeometry(0.085, 0.085, 1.18, 22), hingeMat);
+    hinge.rotation.z = Math.PI / 2;
+    hinge.position.set(0, 1.17, -3.30);
+    hinge.userData.shell = true;
+    shellFadeMats.push(hinge.material);
+    caseRoot.add(hinge);
+    [-0.62, 0.62].forEach((x) => {
+      const hingeCap = addCylinder(caseRoot, 0.11, 0.11, 0.07, hingeMat, x, 1.17, -3.30, 'x', 18);
+      hingeCap.userData.shell = true;
+      shellFadeMats.push(hingeCap.material);
+      const baseLug = addBox(caseRoot, 0.2, 0.2, 0.42, hingeMat, x, 1.06, -3.18, true);
+      baseLug.userData.shell = true;
+      shellFadeMats.push(baseLug.material);
+    });
+
+    lidPivot = new THREE.Group();
+    lidPivot.position.set(0, 1.17, -3.30);
+    device.add(lidPivot);
+    lidGroup = new THREE.Group();
+    lidGroup.userData.infoKey = 'lid';
+    lidGroup.position.z = 3.30;
+    lidPivot.add(lidGroup);
+    [-0.6, 0.6].forEach((x) => {
+      const ear = addBox(lidGroup, 0.17, 0.11, 0.34, hingeMat, x, 0.045, -3.16, true);
+      ear.userData.shell = true;
+      shellFadeMats.push(ear.material);
+    });
+
+    const lidDisc = markShell(new THREE.Mesh(holeDisc(CASE_R, 0.16, 0.81, 0.21, 0.23), shellMat));
+    lidDisc.position.y = 0.01;
+    lidGroup.add(lidDisc);
+    const lidEdge = markShell(new THREE.Mesh(new THREE.TorusGeometry(3.21, 0.05, 9, 64), shellMat));
+    lidEdge.rotation.x = Math.PI / 2;
+    lidEdge.position.y = 0.17;
+    lidGroup.add(lidEdge);
+
+    const lidGasket = new THREE.Mesh(new THREE.TorusGeometry(3.05, 0.036, 8, 64), std(0x0a120e, { roughness: 0.9 }));
+    lidGasket.rotation.x = Math.PI / 2;
+    lidGasket.position.y = 0.012;
+    lidGroup.add(lidGasket);
+    shellFadeMats.push(lidGasket.material);
+
+    const lidInner = markShell(new THREE.Mesh(
+      holeDisc(3.02, 0.018, 0.81, 0.21, 0.23),
+      std(0xf2f4ef, { roughness: 0.82, metalness: 0.02 })
+    ));
+    lidInner.position.y = -0.006;
+    lidGroup.add(lidInner);
+    shellFadeMats.push(lidInner.material);
+
+    // decal ngoài nắp
+    const logoMat = new THREE.MeshBasicMaterial({
+      map: createLogoTexture(), transparent: true, depthWrite: false, opacity: 0.94
+    });
+    const logo = new THREE.Mesh(new THREE.PlaneGeometry(3.7, 1.3), logoMat);
+    logo.rotation.x = -Math.PI / 2;
+    logo.position.set(-0.2, 0.185, 0.08);
+    logo.userData.noShadow = true;
+    lidGroup.add(logo);
+    shellFadeMats.push(logoMat);
+
+    // decal mặt trong nắp
+    const lidGuideTexture = canvasTexture(1024, 540, (ctx, W, H) => {
+      ctx.clearRect(0, 0, W, H);
+      ctx.textAlign = 'center';
+      ctx.fillStyle = '#173b2d';
+      ctx.font = '800 132px "Be Vietnam Pro", sans-serif';
+      ctx.fillText('Cim Ng', W / 2, 150);
+      ctx.fillStyle = 'rgba(37,83,64,.82)';
+      ctx.font = '600 38px "Be Vietnam Pro", sans-serif';
+      ctx.fillText('Thiết bị phần cứng bổ trợ của app', W / 2, 208);
+      ctx.fillStyle = 'rgba(51,102,80,.56)';
+      ctx.font = '500 22px "IBM Plex Mono", monospace';
+      ctx.fillText('MỞ NẮP  →  CẦM BÚT ĐO  →  ĐẶT LÊN DA', W / 2, 252);
+      const labels = ['D', 'S'];
+      labels.forEach((text, i) => {
+        const x = 360 + i * 140;
+        const y = 356;
+        ctx.strokeStyle = i === 0 ? 'rgba(181,119,24,.6)' : 'rgba(35,116,160,.58)';
+        ctx.fillStyle = i === 0 ? 'rgba(157,100,16,.9)' : 'rgba(28,102,145,.9)';
+        ctx.lineWidth = 3;
+        ctx.beginPath();
+        ctx.arc(x, y, 20, 0, Math.PI * 2);
+        ctx.stroke();
+        ctx.font = '600 21px "IBM Plex Mono", monospace';
+        ctx.textAlign = 'center';
+        ctx.fillText(text, x, y + 7);
+        if (i < 1) {
+          ctx.strokeStyle = 'rgba(56,107,83,.24)';
+          ctx.beginPath();
+          ctx.moveTo(x + 27, y);
+          ctx.lineTo(x + 113, y);
+          ctx.stroke();
+        }
+      });
+      ctx.textAlign = 'left';
+      ctx.fillStyle = 'rgba(53,98,77,.38)';
+      ctx.font = '400 18px "IBM Plex Mono", monospace';
+      ctx.fillText('2 POGO ELECTRODES · 1–100 kHz · WEARABLE POD', 54, 444);
+    });
+    const lidGuideMat = new THREE.MeshBasicMaterial({
+      map: lidGuideTexture, transparent: true, depthWrite: false, opacity: 0.92, side: THREE.DoubleSide
+    });
+    const lidGuide = new THREE.Mesh(new THREE.PlaneGeometry(4.35, 2.45), lidGuideMat);
+    lidGuide.rotation.x = Math.PI / 2;
+    lidGuide.position.set(-0.05, -0.04, 0);
+    lidGuide.userData.noShadow = true;
+    lidGroup.add(lidGuide);
+    shellFadeMats.push(lidGuideMat);
+
+    // cửa sổ UV
+    const windowRing = new THREE.Mesh(new THREE.TorusGeometry(0.26, 0.032, 9, 24), std(0x56655e, { metalness: 0.55, roughness: 0.34 }));
+    windowRing.rotation.x = Math.PI / 2;
+    windowRing.position.set(0.81, 0.172, 0.21);
+    lidGroup.add(windowRing);
+    shellFadeMats.push(windowRing.material);
+    const uvGlassMat = new THREE.MeshPhysicalMaterial({
+      color: 0x8ed8e8, transparent: true, opacity: 0.4, roughness: 0.06,
+      metalness: 0.05, clearcoat: 1, clearcoatRoughness: 0.1, side: THREE.DoubleSide
+    });
+    const uvGlass = new THREE.Mesh(new THREE.CylinderGeometry(0.225, 0.225, 0.012, 24), uvGlassMat);
+    uvGlass.position.set(0.81, 0.09, 0.21);
+    lidGroup.add(uvGlass);
+    shellFadeMats.push(uvGlassMat);
+
+    // nam châm / ốc trang trí
+    [[-1.3, 2.8], [1.3, 2.8]].forEach(([x, z]) => {
+      const magnet = addCylinder(device, 0.07, 0.07, 0.025, std(0xb5c0ba, { metalness: 0.85, roughness: 0.2 }), x, 1.13, z, 'y', 14);
+      magnet.userData.shell = true;
+      shellFadeMats.push(magnet.material);
+    });
+    [0, 2.1, 4.2].forEach((angle) => {
+      const x = Math.cos(angle) * 2.7;
+      const z = Math.sin(angle) * 2.7;
+      const screw = addCylinder(lidGroup, 0.06, 0.06, 0.025, std(0xb8c0ba, { metalness: 0.7, roughness: 0.28 }), x, 0.185, z, 'y', 12);
+      screw.userData.shell = true;
+      shellFadeMats.push(screw.material);
+    });
+
+    const ledMat = new THREE.MeshStandardMaterial({
+      color: 0x5cebb3, emissive: 0x3bdfaa, emissiveIntensity: 2.1, roughness: 0.25
+    });
+    const led = new THREE.Mesh(new THREE.SphereGeometry(0.032, 12, 8), ledMat);
+    led.position.set(0, 1.11, 3.22);
+    caseRoot.add(led);
+    shellFadeMats.push(ledMat);
+
+    shellGroups.push(caseRoot, lidGroup, lidPivot);
+
+    // ---- dây đeo kiểu smartwatch ----
+    strapGroup = new THREE.Group();
+    strapGroup.userData.infoKey = 'strap';
+    device.add(strapGroup);
+    const strapMat = new THREE.MeshStandardMaterial({
+      map: createStrapTexture(), color: 0xffffff, roughness: 0.82, metalness: 0.02,
+      side: THREE.DoubleSide
+    });
+    const strapPoints = [
+      [-3.85, 0.42, 0], [-3.45, 0.24, 0], [-3.05, -0.12, 0],
+      [0, -0.24, 0], [3.05, -0.12, 0], [3.45, 0.24, 0], [3.85, 0.42, 0]
+    ];
+    const strap = new THREE.Mesh(makeRibbonGeometry(strapPoints, 1.8, 70, [0, 0, 1]), strapMat);
+    strap.castShadow = true;
+    strap.receiveShadow = true;
+    strapGroup.add(strap);
+
+    const metalLoopMat = std(0xaeb7b2, { metalness: 0.9, roughness: 0.22 });
+    [-3.35, 3.35].forEach((x) => {
+      const loop = addCylinder(strapGroup, 0.03, 0.03, 1.95, metalLoopMat, x, 0.4, 0, 'z', 10);
+      loop.castShadow = true;
+    });
+
+    // ---- dock ngoài cho bút đo, nằm trước thiết bị ----
+    probeDockAnchor = new THREE.Object3D();
+    probeDockAnchor.position.set(-3.4, 0.0, 3.9);
+    probeDockAnchor.rotation.z = -Math.PI / 2;
+    device.add(probeDockAnchor);
+  }
+
+  function makeRibbonGeometry(points, width, segments, sideVector = [1, 0, 0]) {
+    const curve = new THREE.CatmullRomCurve3(points.map((p) => new THREE.Vector3(p[0], p[1], p[2])));
+    const positions = [];
+    const uvs = [];
+    const indices = [];
+    const side = new THREE.Vector3(sideVector[0], sideVector[1], sideVector[2]).normalize();
+    for (let i = 0; i <= segments; i++) {
+      const t = i / segments;
+      const p = curve.getPointAt(t);
+      const left = p.clone().addScaledVector(side, -width / 2);
+      const right = p.clone().addScaledVector(side, width / 2);
+      positions.push(left.x, left.y, left.z, right.x, right.y, right.z);
+      uvs.push(0, t, 1, t);
+      if (i < segments) {
+        const a = i * 2;
+        indices.push(a, a + 1, a + 2, a + 1, a + 3, a + 2);
+      }
+    }
+    const geometry = new THREE.BufferGeometry();
+    geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+    geometry.setAttribute('uv', new THREE.Float32BufferAttribute(uvs, 2));
+    geometry.setIndex(indices);
+    geometry.computeVertexNormals();
+    return geometry;
+  }
+
+  // ---------- Helpers dựng linh kiện theo ảnh thật ----------
+  function pbMats() {
+    return {
+      ic: std(0x0f1211, { roughness: 0.42, metalness: 0.15 }),
+      lead: std(0xcfd2cb, { metalness: 0.88, roughness: 0.26 }),
+      gold: std(0xd9ae4c, { metalness: 0.85, roughness: 0.25 }),
+      black: std(0x15181a, { roughness: 0.6 }),
+      white: std(0xe9ebe3, { roughness: 0.5 }),
+      tan: std(0xb89a6a, { roughness: 0.5 }),
+      blueCap: std(0x2f74e6, { roughness: 0.25, metalness: 0.12 })
+    };
+  }
+  // Bo mạch phẳng (top = -z), có thể vát 2 góc trên và khoét lỗ tròn
+  function boardMesh(w, d, color, opt = {}) {
+    const s = new THREE.Shape();
+    const c = opt.chamfer || 0, hw = w / 2, hd = d / 2;
+    s.moveTo(-hw, -hd); s.lineTo(hw, -hd); s.lineTo(hw, hd - c); s.lineTo(hw - c, hd);
+    s.lineTo(-hw + c, hd); s.lineTo(-hw, hd - c); s.closePath();
+    if (opt.hole) {
+      const h = new THREE.Path();
+      h.absarc(opt.hole[0], -opt.hole[1], opt.hole[2], 0, Math.PI * 2, true);
+      s.holes.push(h);
+    }
+    const g = new THREE.ExtrudeGeometry(s, { depth: 0.1, bevelEnabled: false, curveSegments: 24 });
+    g.rotateX(-Math.PI / 2);
+    const m = new THREE.Mesh(g, std(color, { roughness: 0.48, metalness: 0.08 }));
+    m.castShadow = true; m.receiveShadow = true;
+    return m;
+  }
+  // Lớp in lụa / đường mạch trong suốt phủ lên mặt bo (400 px / đơn vị)
+  function decal(group, w, d, draw) {
+    const S = 400;
+    const tex = canvasTexture(Math.round(w * S), Math.round(d * S), (ctx, W, H) => {
+      draw(ctx, W, H, (x) => W / 2 + x * S, (z) => H / 2 + z * S, S);
+    });
+    const m = new THREE.Mesh(new THREE.PlaneGeometry(w, d), new THREE.MeshStandardMaterial({
+      map: tex, transparent: true, roughness: 0.55, metalness: 0.05,
+      depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2
+    }));
+    m.rotation.x = -Math.PI / 2; m.position.y = 0.102; m.userData.noShadow = true;
+    group.add(m);
+    return m;
+  }
+  function soic(g, K, x, z, w, d, n) {
+    addBox(g, w, 0.085, d, K.ic, x, 0.1425, z);
+    for (let i = 0; i < n; i++) {
+      const px = x - w / 2 + w * (i + 0.5) / n;
+      addBox(g, 0.032, 0.018, 0.06, K.lead, px, 0.112, z - d / 2 - 0.02, false);
+      addBox(g, 0.032, 0.018, 0.06, K.lead, px, 0.112, z + d / 2 + 0.02, false);
+    }
+    addCylinder(g, 0.018, 0.018, 0.004, K.lead, x - w / 2 + 0.06, 0.187, z - d / 2 + 0.05, 'y', 10);
+  }
+  function smdRes(g, K, x, z, rot, mat) {
+    const r = new THREE.Group(); r.position.set(x, 0.118, z); r.rotation.y = rot || 0;
+    addBox(r, 0.1, 0.035, 0.055, mat || K.ic, 0, 0, 0, false);
+    addBox(r, 0.02, 0.04, 0.058, K.lead, -0.04, 0, 0, false);
+    addBox(r, 0.02, 0.04, 0.058, K.lead, 0.04, 0, 0, false);
+    g.add(r);
+  }
+  // Chân cắm: nhô ngang khỏi mép bo rồi cắm xuống lỗ perfboard
+  function legPin(g, K, x, z, dx, dz, len) {
+    addBox(g, dx ? len : 0.035, 0.035, dz ? len : 0.035, K.lead, x + dx * len / 2, 0.05, z + dz * len / 2, false);
+    addCylinder(g, 0.022, 0.022, 0.2, K.lead, x + dx * len, -0.04, z + dz * len, 'y', 8);
+  }
+  // Tụ gốm đĩa xanh dương đứng trên 2 chân
+  function discCap(g, K, x, z, r, axis) {
+    [-0.04, 0.04].forEach((o) => addCylinder(g, 0.011, 0.011, 0.14, K.lead, axis === 'x' ? x : x + o, 0.17, axis === 'x' ? z + o : z, 'y', 6));
+    addCylinder(g, r, r, 0.045, K.blueCap, x, 0.2 + r * 0.9, z, axis, 20);
+  }
+
+  // ---------- Mạch EIS: model 3D lấy từ file mạch_EISS.html (PCB 50×50 mm, toạ độ mm) ----------
+  const EISS_DATA = {"T":[[2,"+3V3",0.25,[3.7,-22.2,5.1,-20.8,5.1,-20.1]],[2,"SCL",0.25,[-2.8,6.9,-2.8,4.8,-1.0,3.0]],[2,"SDA",0.25,[0.3,3.6,-1.7,5.6,-1.7,6.0]],[2,"NSDEN",0.25,[-4.5,-3.5,-1.8,-3.5]],[2,"D-",0.25,[-19.5,15.0,-19.1,15.4,-16.6,15.4,-16.1,14.9,-16.1,13.7,-16.4,13.4]],[2,"SCL",0.25,[-0.9,-15.8,-0.9,-14.8]],[2,"+3V3",0.25,[-2.5,-8.8,-1.5,-7.9,-1.5,-7.0]],[2,"WAKEY",0.25,[23.0,-8.0,23.0,-12.0]],[2,"GND",1.02,[2.4,6.0,2.4,-2.6,2.4,-2.6]],[2,"SCL",0.25,[-0.9,-2.7,-0.9,-14.8]],[2,"SDA",0.25,[0.3,-3.7,0.3,-3.7,0.3,-17.1]],[1,"+3V3",0.51,[-24.2,5.4,-24.2,19.1,-20.3,23.0,-11.5,23.0,-3.7,15.2,-3.7,6.2,-2.0,4.5,2.8,4.5,5.4,7.1,5.4,8.1]],[1,"+3V3",0.51,[-24.2,-2.3,-24.2,5.4,-23.2,4.5,-21.7,4.5]],[1,"+3V3",0.51,[-5.3,-21.2,-21.8,-21.2,-24.2,-18.8,-24.2,-2.3,-21.2,-5.3,-8.7,-5.3]],[1,"NSDEN",0.25,[-6.8,-5.3,-6.8,-4.1,-6.2,-3.5,-4.5,-3.5]],[1,"U6_4",0.25,[-9.6,-12.3,-10.7,-12.3,-11.2,-11.8,-11.2,-8.5,-10.5,-7.8,-9.5,-7.8,-7.7,-6.0,-7.7,-2.8]],[1,"U5_6",0.25,[21.9,8.7,21.5,8.7,21.0,9.2,21.0,12.2,20.4,12.9,20.4,13.8]],[1,"U4_6",0.25,[13.8,13.7,13.8,15.0,14.2,15.4,20.4,15.4]],[1,"U4_5",0.25,[17.0,11.9,18.8,11.9]],[1,"U4_5",0.25,[15.1,13.7,15.1,12.5,15.7,11.9,17.0,11.9]],[1,"WAKEY",0.25,[19.7,-20.9,21.1,-20.9,23.0,-19.0,23.0,-12.0]],[1,"WAKEY",0.25,[20.4,-3.8,20.4,-0.2]],[1,"WAKEY",0.25,[20.4,-3.8,21.5,-3.8,22.5,-4.8,23.0,-5.3,23.0,-8.0]],[1,"IC1_17",0.25,[14.5,-3.2,15.8,-3.2,17.9,-5.3,21.3,-5.3,22.2,-6.1,22.2,-8.6,21.3,-9.5,19.8,-9.5]],[1,"R7_1",0.25,[12.8,-3.2,12.7,-3.2,12.7,-0.1]],[1,"+3V3",0.25,[14.2,-0.1,14.2,1.0,13.4,1.9,8.0,1.9,7.4,1.2,7.4,-0.2]],[1,"D-",0.25,[-12.0,17.5,-5.1,10.5,-5.1,-1.9,1.2,-8.2,2.2,-8.2]],[1,"BAT+",0.51,[-18.9,4.4,-18.9,-0.2,-18.3,-0.2]],[1,"SDA",0.25,[-1.7,6.0,-1.3,6.4,-1.3,8.0]],[1,"+3V3",0.51,[2.6,8.0,1.3,8.0]],[1,"+3V3",0.25,[20.0,9.4,17.9,9.4,17.0,10.3]],[1,"+3V3",0.25,[-21.7,5.5,-21.7,1.4]],[1,"U4_1",0.25,[24.2,15.9,24.2,17.2,23.7,17.7,13.2,17.7,12.6,18.3,12.6,19.3]],[1,"U4_1",0.25,[21.9,9.4,22.6,9.4,24.2,11.0,24.2,15.9]],[1,"U4_1",0.25,[12.6,19.3,11.3,19.3]],[1,"D-",0.25,[-16.4,13.4,-16.4,13.4,-17.6,13.4]],[1,"D-",0.25,[-19.5,15.0,-18.9,14.4,-17.6,14.4]],[1,"D+",0.25,[-17.6,14.9,-16.8,14.9,-16.6,14.8,-16.6,14.2,-16.8,14.0,-17.6,14.0]],[1,"U6_4",0.25,[-10.1,-12.3,-9.6,-12.3]],[1,"SCL",0.25,[-1.0,3.0,-0.9,2.9,-0.9,-2.7]],[1,"SCL",0.25,[-2.0,8.0,-2.8,7.3,-2.8,6.9]],[1,"D+",0.25,[-10.8,16.9,-9.1,15.3]],[1,"U4_6",0.25,[20.4,15.4,22.9,15.4]],[1,"C11_2",0.25,[13.8,21.3,13.8,19.3,13.8,19.3]],[1,"C11_2",0.25,[3.9,23.0,5.7,23.0,7.4,21.3]],[1,"R4_2",0.25,[-11.8,-1.4,-10.1,0.4,-8.5,0.4]],[1,"U1_1",0.25,[-13.4,-1.4,-15.0,-3.0,-17.2,-3.0,-18.2,-2.0,-18.3,-2.0]],[1,"U1_5",0.25,[-15.9,-2.0,-13.5,0.4,-13.4,0.4]],[1,"VIN",0.25,[-0.1,18.7,-0.1,21.0]],[1,"U4_7",0.25,[12.6,13.7,12.6,16.1,8.2,20.5,6.5,20.5,5.6,21.4,2.8,21.4,1.2,23.0,-0.1,23.0]],[1,"U4_7",0.25,[12.4,11.4,12.6,11.5,12.6,13.7]],[1,"U4_6",0.25,[14.0,11.4,13.8,11.5,13.8,13.7]],[1,"VIN",0.25,[0.6,14.9,0.6,18.0,-0.1,18.7]],[1,"USB_B5",0.25,[-16.0,19.5,-19.1,19.5,-19.8,18.8,-19.8,16.4,-19.4,15.9,-17.6,15.9]],[1,"U5_4",0.25,[21.9,10.1,22.9,11.0,22.9,12.8]],[1,"VBUS",0.51,[-6.8,0.4,-6.7,0.5,-6.7,3.8]],[1,"U2_4",0.25,[-21.7,8.0,-21.7,8.0,-21.7,6.0]],[1,"D+",0.25,[-17.6,14.0,-19.9,14.0,-21.0,15.1,-21.0,19.2,-19.1,21.1,-14.9,21.1,-10.8,16.9]],[1,"D-",0.25,[-12.0,17.5,-15.1,20.5,-18.7,20.5,-20.3,18.9,-20.3,15.8,-19.5,15.0]],[1,"+3V3",0.25,[-5.3,-18.8,-5.3,-16.6]],[1,"CS",0.25,[-9.6,-10.1,-7.4,-10.1,-5.0,-7.8]],[1,"MISO",0.25,[-9.6,-15.6,-8.4,-15.6,-6.3,-13.6]],[1,"MISO",0.25,[-6.3,-13.6,-6.1,-13.3,2.2,-13.3]],[1,"SCLK",0.25,[2.2,-12.0,2.2,-12.0,1.0,-12.0,0.6,-12.4,-6.7,-12.4,-7.7,-13.4,-9.6,-13.4]],[1,"+3V3",0.25,[-5.3,-14.6,-5.3,-16.6]],[1,"SDA",0.25,[-3.7,-18.8,-2.1,-17.1,2.2,-17.1]],[1,"SCL",0.25,[-0.9,-15.8,2.2,-15.8]],[1,"SCL",0.25,[-3.7,-16.6,-3.0,-15.8,-0.9,-15.8]],[1,"SDA",0.25,[0.3,-3.7,0.3,3.6,0.3,3.6]],[1,"D+",0.25,[-9.1,15.3,-4.5,10.7,-4.5,-1.7,0.7,-6.9,2.2,-6.9]],[1,"CALEN",0.25,[19.8,-10.8,21.6,-10.8,23.9,-8.5,23.9,4.9,20.0,8.7]],[1,"BOOT",0.25,[8.9,-3.8,8.9,-0.2]],[1,"+3V3",0.25,[7.4,-3.8,7.4,-0.2]],[1,"BOOT",0.25,[8.9,-3.8,12.0,-6.9,19.8,-6.9]],[1,"+3V3",0.25,[-5.3,-21.2,-5.3,-19.2]],[1,"+3V3",0.51,[-3.0,-21.2,-3.1,-21.2,-5.3,-21.2]],[1,"+3V3",0.51,[-3.0,-21.2,-3.0,-21.2,-0.8,-21.2]],[1,"+3V3",0.51,[-0.8,-21.2,-0.8,-21.1,0.1,-21.1,1.2,-22.2,2.2,-22.2]],[1,"+3V3",0.51,[2.6,8.0,2.6,8.1,5.4,8.1]],[1,"+3V3",0.51,[7.6,8.1,5.4,8.1]],[1,"+3V3",0.51,[7.3,15.3,7.3,17.4,7.4,17.4]],[1,"+3V3",0.51,[7.3,15.3,8.9,13.7,11.3,13.7]],[1,"+3V3",0.51,[7.6,8.1,14.8,8.1,17.0,10.3]],[1,"USB_A4/B9",0.51,[-15.5,13.1,-10.8,13.1,-6.7,9.0,-6.7,7.0]],[1,"+3V3",0.25,[-5.2,-10.2,-4.0,-8.9,-4.0,-8.8]],[1,"+3V3",0.25,[-4.0,-8.8,-4.0,-8.8,-2.5,-8.8]],[1,"+3V3",0.25,[2.2,-22.2,2.3,-22.2,3.7,-22.2]],[1,"+3V3",0.25,[5.1,-20.1,5.1,-20.1,5.1,-2.6]],[1,"RESET",0.25,[2.2,-20.9,3.7,-20.9,4.4,-21.6,4.4,-23.4,3.5,-24.4,-3.1,-24.4,-4.8,-22.7,-5.3,-22.7]],[1,"+3V3",0.25,[5.1,-2.6,5.1,-1.4,6.3,-0.2,7.4,-0.2]],[1,"RESET",0.25,[-18.0,-22.2,-14.4,-22.2]],[1,"RESET",0.25,[-9.0,-22.5,-8.7,-22.7,-5.3,-22.7]],[1,"RESET",0.25,[-9.0,-22.5,-9.2,-22.2,-14.4,-22.2]],[1,"VBUS",0.51,[-9.1,3.8,-6.7,3.8,-6.7,3.8]],[1,"+3V3",0.51,[7.4,17.4,7.4,19.7,7.4,19.7]],[1,"+3V3",0.51,[11.3,13.7,11.3,11.0,8.4,8.1,7.6,8.1]],[1,"VOUT",0.25,[1.3,14.9,1.3,17.2,3.9,19.8]],[1,"RFB",0.25,[-0.0,14.9,-0.0,17.1,-1.7,18.7]],[1,"BAT+",0.51,[-18.9,4.5,-18.9,4.9]],[1,"U2_5",0.25,[-17.3,5.6,-15.4,5.6]],[1,"U2_5",0.25,[-17.3,5.6,-17.6,5.9,-18.9,5.9]],[1,"BAT+",0.51,[-18.9,4.4,-13.7,4.5]],[1,"BAT+",0.51,[-13.7,4.5,-12.2,4.5,-11.4,5.3]],[1,"VBUS",0.51,[-9.1,3.8,-11.2,1.7,-14.1,1.7,-15.9,-0.2]],[1,"USB_A5",0.25,[-16.7,8.8,-18.9,8.8,-19.9,9.8,-19.9,11.8,-18.7,13.0,-17.6,13.0]],[1,"+3V3",0.25,[-15.4,7.1,-16.2,7.9,-18.8,7.9,-19.8,8.9,-22.4,8.9,-23.1,8.2,-23.1,6.1,-22.5,5.4,-21.7,5.4]],[1,"GND",0.51,[0.6,8.1,0.6,6.8,1.4,6.0,2.4,6.0]],[1,"C11_2",0.25,[13.8,21.3,13.8,21.3,7.4,21.3]],[1,"GND",0.51,[-0.7,8.0,0.6,8.0]],[1,"NSDEN",0.25,[2.2,-18.4,2.9,-18.4,4.2,-17.1,4.2,-6.5,2.5,-4.8,-0.5,-4.8,-1.8,-3.5]],[1,"USB_A4/B9",0.51,[-17.6,16.6,-16.6,16.6,-15.5,15.2,-15.5,13.1,-16.8,11.8,-17.6,11.8]],[1,"CS",0.25,[-5.0,-7.8,-2.5,-7.8,-0.8,-9.5,2.2,-9.5]],[1,"MOSI",0.25,[-9.6,-11.2,-9.6,-11.2,-4.2,-11.2]],[1,"MOSI",0.25,[-4.2,-11.2,-3.7,-10.8,2.2,-10.8]]],"V":[[0.29,-3.67,0.62],[-0.93,-2.71,0.62],[-2.75,6.9,0.62],[-1.0,3.0,0.62],[0.3,3.6,0.62],[-1.72,5.99,0.62],[-4.53,-3.49,0.62],[-4.53,-3.49,0.62],[-1.75,-3.49,0.62],[-19.5,15.0,0.62],[-16.4,13.4,0.62],[0.3,-17.1,0.62],[-0.94,-15.84,0.62],[-2.46,-8.84,0.62],[-1.53,-7.01,0.62],[3.69,-22.2,0.62],[5.05,-20.12,0.62],[0.4,-23.2,0.62],[2.43,-2.61,0.62],[-10.2,1.2,0.62],[-20.4,-0.1,0.62],[-23.0,-0.1,0.62],[-1.9,-23.4,0.62],[2.43,6.03,0.62],[19.72,12.79,0.62],[-2.0,10.0,0.62],[0.0,10.0,0.62],[2.0,10.0,0.62],[-2.0,12.0,0.62],[0.0,12.0,0.62],[2.0,12.0,0.62],[4.0,12.0,0.62],[4.0,10.0,0.62],[4.0,14.0,0.62],[6.0,14.0,0.62],[6.0,12.0,0.62],[8.0,12.0,0.62],[10.0,12.0,0.62],[9.0,10.0,0.62],[4.0,16.0,0.62],[4.0,18.0,0.62],[6.0,19.0,0.62],[-2.0,17.0,0.62],[-3.0,19.0,0.62],[-3.0,21.0,0.62],[19.7,11.11,0.62],[-22.0,-17.0,0.62],[-18.0,-17.0,0.62],[-14.0,-17.0,0.62],[-14.0,-15.0,0.62],[-18.0,-15.0,0.62],[-22.0,-13.0,0.62],[-18.0,-13.0,0.62],[-14.0,-13.0,0.62],[-14.0,-11.0,0.62],[-18.0,-11.0,0.62],[-22.0,-11.0,0.62],[-18.0,-9.0,0.62],[-14.0,-9.0,0.62],[-14.0,-7.0,0.62],[-18.0,-7.0,0.62],[-22.0,-7.0,0.62],[-7.0,-18.0,0.62],[-9.0,-20.0,0.62],[9.0,-20.0,0.62],[10.0,-20.0,0.62],[11.0,-20.0,0.62],[8.0,-20.0,0.62],[7.16,-18.99,0.62],[7.16,-17.99,0.62],[7.16,-16.99,0.62],[7.16,-15.99,0.62],[8.0,-15.39,0.62],[9.0,-15.39,0.62],[10.0,-15.39,0.62],[11.0,-15.39,0.62],[11.81,-15.98,0.62],[11.81,-16.98,0.62],[11.81,-17.98,0.62],[11.81,-18.98,0.62],[23.0,-8.0,0.62],[23.0,-12.0,0.62]],"B":[["C8","0.1u","C0603","C",5.4,8.8,0.8,1.6,3.142,0.8],["BLINKY","150060RS75003","LED0808","L",13.73,-3.22,3.44,1.61,0.0,0.7],["BOOT","SKTHACE010","KEY-SMD_4P-L3.5-W3.2-P1.50-LS3.60","S",8.12,-1.99,3.5,3.2,-1.571,1.8],["IC1","ESP32-C6-WROOM-1-N8","ESP32C6WROOM1N8","I",11.0,-18.2,18.0,25.5,0.0,3.2],["R12","8.2k","R0603","R",-5.8,-14.1,0.8,1.6,-2.356,0.45],["Q1","MMFTP3401","TO-236-3_L2.9-W1.3-P1.90-LS2.4-BR","Q",-7.75,-4.0,1.3,2.9,1.571,1.2],["STAT","150060RS75003","LED0808","L",-7.8,0.36,3.44,1.61,3.142,0.7],["RCAL","10k","R0603","R",20.4,14.6,0.8,1.6,3.142,0.45],["RESET","SKTHACE010","KEY-SMD_4P-L3.5-W3.2-P1.50-LS3.60","S",-16.2,-23.0,3.5,3.2,0.0,1.8],["WAKEY","SKTHACE010","KEY-SMD_4P-L3.5-W3.2-P1.50-LS3.60","S",19.69,-1.96,3.5,3.2,-1.571,1.8],["D2","ESD7551N2T5G","ESD7551N2T5G","D",-10.5,17.2,1.74,1.74,0.0,0.5],["D3","ESD7551N2T5G","ESD7551N2T5G","D",-12.3,17.2,1.74,1.74,0.0,0.5],["D4","1N5819HW-7-F","SOD-123_L2.7-W1.6-LS3.7-RD","D",-6.7,5.4,1.6,2.69,0.0,1.4],["D1","ESD7551N2T5G","ESD7551N2T5G","D",-13.79,12.73,1.22,1.95,0.0,0.5],["J1","HDR-M-2.54_1x2","HDR-M-2.54_1X2","J",-11.37,6.53,5.28,2.74,-1.571,2.5],["J2","HDR-M-2.54_1x2","HDR-M-2.54_1X2","J",22.9,14.1,5.28,2.74,1.571,2.5],["C1","10u","C0603","C",-9.06,4.5,0.8,1.6,3.142,0.8],["C2","4.7u","C0603","C",-13.71,5.18,0.8,1.6,3.142,0.8],["C3","4.7u","C0603","C",-21.71,0.65,0.8,1.6,0.0,0.8],["C4","1n","C0603","C",-21.05,8.03,0.8,1.6,1.571,0.8],["C5","10u","C0603","C",-3.0,-21.9,0.8,1.6,0.0,0.8],["C6","0.1u","C0603","C",-0.83,-21.86,0.8,1.6,0.0,0.8],["C7","10u","C0603","C",6.64,15.29,0.8,1.6,-1.571,0.8],["C9","10u","C0603","C",6.72,17.39,0.8,1.6,-1.571,0.8],["C10","0.1u","C0603","C",7.6,8.8,0.8,1.6,3.142,0.8],["C11","47nF","C1206","U",3.86,21.41,1.6,3.2,0.0,1.3],["C12","1u","C0603","C",-8.96,-23.22,0.8,1.6,0.0,0.8],["R1","5.1k","R0603","R",-15.98,8.77,0.8,1.6,1.571,0.45],["R2","5.1k","R0603","R",-16.0,18.7,0.8,1.6,0.0,0.45],["R3","2k","R0603","R",-12.6,0.4,0.8,1.6,1.571,0.45],["R4","1k","R0603","R",-12.6,-1.4,0.8,1.6,-1.571,0.45],["R5","150k","R0603","R",-15.4,6.36,0.8,1.6,0.0,0.45],["R6","100k","R0603","R",-17.27,6.37,0.8,1.6,3.142,0.45],["R7","1k","R0603","R",13.48,-0.12,0.8,1.6,-1.571,0.45],["R10","8.2k","R0603","R",-4.5,-8.3,0.8,1.6,-2.356,0.45],["R11","8.2k","R0603","R",-4.7,-10.7,0.8,1.6,0.785,0.45],["R13","49.9k","R0603","R",7.4,20.5,0.8,1.6,3.142,0.45],["R14","49.9k","R0603","R",14.6,21.3,0.8,1.6,1.571,0.45],["R15","49.9k","R0603","R",17.0,11.1,0.8,1.6,3.142,0.45],["R16","49.9k","R0603","R",18.8,11.1,0.8,1.6,0.0,0.45],["R17","10k","R0603","R",13.2,11.4,0.8,1.6,-1.571,0.45],["R18","20k","R0603","R",-0.1,22.0,0.8,1.6,0.0,0.45],["R19","20k","R0603","R",-0.9,18.7,0.8,1.6,-1.571,0.45],["R20","10k","R0603","R",-5.25,-22.0,0.8,1.6,0.0,0.45],["R21","10k","R0603","R",4.33,-2.62,0.8,1.6,-1.571,0.45],["USB","NO","GCT_USB4105-GF-A","U",-21.23,14.2,7.53,9.58,0.0,3.2],["U1","MCP73831T-2ACI/OT","SOT-23-5_L3.0-W1.7-P0.95-LS2.8-BL","U",-17.1,-1.1,2.9,1.55,1.571,1.1],["U2","ADM7171ACPZ-3.3-R7","LFCSP-8_L3.0-W3.0-P0.50-BL-EP","U",-20.3,5.2,3.0,3.0,0.0,0.8],["U3","AD5933YRSZ","SSOP-16_L6.2-W5.3-P0.65-LS7.8-BL","X",0.3,11.5,5.3,6.2,-1.571,1.9],["U4","AD8606ARZ-REEL7","SOIC-8_L4.9-W3.9-P1.27-LS6.0-BL","U",13.2,16.5,3.9,4.9,-1.571,1.7],["U5","ADG849YKSZ-REEL","SC-70-6_L2.0-W1.3-P0.65-LS2.1-BR","U",21.0,9.4,1.25,2.0,3.142,1.0],["U6","NO","MEM2075-00-140-01-A_MK","C",-17.63,-11.13,14.73,14.73,0.0,1.85],["R8","2k2","R0603","R",-4.5,-16.6,0.8,1.6,1.571,0.45],["R9","2k2","R0603","R",-4.5,-18.8,0.8,1.6,1.571,0.45]],"P":[[5.4,8.1,0.8,0.9,90.0],[5.4,9.5,0.8,0.9,90.0],[12.77,-3.22,1.0,0.9,270.0],[14.47,-3.22,1.0,0.9,270.0],[8.87,-0.19,1.5,1.1,90.0],[8.87,-3.79,1.5,1.1,90.0],[7.37,-0.19,1.5,1.1,90.0],[7.37,-3.79,1.5,1.1,90.0],[2.25,-23.46,1.5,0.9,0.0],[2.25,-22.19,1.5,0.9,0.0],[2.25,-20.92,1.5,0.9,0.0],[2.25,-19.65,1.5,0.9,0.0],[2.25,-18.38,1.5,0.9,0.0],[2.25,-17.11,1.5,0.9,0.0],[2.25,-15.84,1.5,0.9,0.0],[2.25,-14.57,1.5,0.9,0.0],[2.25,-13.3,1.5,0.9,0.0],[2.25,-12.03,1.5,0.9,0.0],[2.25,-10.76,1.5,0.9,0.0],[2.25,-9.49,1.5,0.9,0.0],[2.25,-8.22,1.5,0.9,0.0],[2.25,-6.95,1.5,0.9,0.0],[19.75,-6.95,1.5,0.9,0.0],[19.75,-8.22,1.5,0.9,0.0],[19.75,-9.49,1.5,0.9,0.0],[19.75,-10.76,1.5,0.9,0.0],[19.75,-12.03,1.5,0.9,0.0],[19.75,-13.3,1.5,0.9,0.0],[19.75,-14.57,1.5,0.9,0.0],[19.75,-15.84,1.5,0.9,0.0],[19.75,-17.11,1.5,0.9,0.0],[19.75,-18.38,1.5,0.9,0.0],[19.75,-19.65,1.5,0.9,0.0],[19.75,-20.92,1.5,0.9,0.0],[19.75,-22.19,1.5,0.9,0.0],[19.75,-23.46,1.5,0.9,0.0],[9.5,-17.74,0.8,0.8,0.0],[8.25,-18.99,0.8,0.8,0.0],[8.25,-17.74,0.8,0.8,0.0],[8.25,-16.49,0.8,0.8,0.0],[9.5,-16.49,0.8,0.8,0.0],[10.74,-16.49,0.8,0.8,0.0],[10.74,-17.74,0.8,0.8,0.0],[10.74,-18.99,0.8,0.8,0.0],[9.5,-18.99,0.8,0.8,0.0],[-5.27,-14.63,0.81,0.86,45.0],[-6.33,-13.57,0.81,0.86,45.0],[-7.75,-2.75,0.7,1.25,0.0],[-8.7,-5.25,0.7,1.25,0.0],[-6.8,-5.25,0.7,1.25,0.0],[-6.84,0.36,1.0,0.9,90.0],[-8.54,0.36,1.0,0.9,90.0],[20.4,13.85,0.81,0.86,90.0],[20.4,15.35,0.81,0.86,90.0],[-18.0,-22.25,1.5,1.1,0.0],[-14.4,-22.25,1.5,1.1,0.0],[-18.0,-23.75,1.5,1.1,0.0],[-14.4,-23.75,1.5,1.1,0.0],[20.44,-0.16,1.5,1.1,90.0],[20.44,-3.76,1.5,1.1,90.0],[18.94,-0.16,1.5,1.1,90.0],[18.94,-3.76,1.5,1.1,90.0],[-10.76,16.94,0.6,0.47,45.0],[-10.24,17.46,0.6,0.47,45.0],[-12.04,17.46,0.6,0.47,225.0],[-12.56,16.94,0.6,0.47,225.0],[-6.7,7.04,0.91,1.22,270.0],[-6.7,3.76,0.91,1.22,270.0],[-13.79,13.1,0.6,0.47,180.0],[-13.79,12.37,0.6,0.47,180.0],[-9.06,3.8,0.8,0.9,90.0],[-9.06,5.2,0.8,0.9,90.0],[-13.71,4.48,0.8,0.9,90.0],[-13.71,5.88,0.8,0.9,90.0],[-21.71,1.35,0.8,0.9,270.0],[-21.71,-0.05,0.8,0.9,270.0],[-21.75,8.03,0.8,0.9,180.0],[-20.35,8.03,0.8,0.9,180.0],[-3.0,-21.2,0.8,0.9,270.0],[-3.0,-22.6,0.8,0.9,270.0],[-0.83,-21.16,0.8,0.9,270.0],[-0.83,-22.56,0.8,0.9,270.0],[7.34,15.29,0.8,0.9,0.0],[5.94,15.29,0.8,0.9,0.0],[7.42,17.39,0.8,0.9,0.0],[6.02,17.39,0.8,0.9,0.0],[7.6,8.1,0.8,0.9,90.0],[7.6,9.5,0.8,0.9,90.0],[3.86,23.0,1.49,1.73,270.0],[3.86,19.81,1.49,1.73,270.0],[-8.96,-22.52,0.8,0.9,270.0],[-8.96,-23.92,0.8,0.9,270.0],[-16.74,8.77,0.81,0.86,180.0],[-15.23,8.77,0.81,0.86,180.0],[-16.0,19.45,0.81,0.86,270.0],[-16.0,17.95,0.81,0.86,270.0],[-13.35,0.4,0.81,0.86,180.0],[-11.85,0.4,0.81,0.86,180.0],[-11.85,-1.4,0.81,0.86,0.0],[-13.35,-1.4,0.81,0.86,0.0],[-15.4,7.11,0.81,0.86,270.0],[-15.4,5.6,0.81,0.86,270.0],[-17.27,5.61,0.81,0.86,90.0],[-17.27,7.12,0.81,0.86,90.0],[14.23,-0.12,0.81,0.86,0.0],[12.73,-0.12,0.81,0.86,0.0],[-3.97,-8.83,0.81,0.86,45.0],[-5.03,-7.77,0.81,0.86,45.0],[-5.23,-10.17,0.81,0.86,225.0],[-4.17,-11.23,0.81,0.86,225.0],[7.4,19.75,0.81,0.86,90.0],[7.4,21.25,0.81,0.86,90.0],[13.85,21.3,0.81,0.86,180.0],[15.35,21.3,0.81,0.86,180.0],[17.0,10.35,0.81,0.86,90.0],[17.0,11.85,0.81,0.86,90.0],[18.8,11.85,0.81,0.86,270.0],[18.8,10.35,0.81,0.86,270.0],[13.95,11.4,0.81,0.86,0.0],[12.45,11.4,0.81,0.86,0.0],[-0.1,22.75,0.81,0.86,270.0],[-0.1,21.25,0.81,0.86,270.0],[-0.15,18.7,0.81,0.86,0.0],[-1.65,18.7,0.81,0.86,0.0],[-5.25,-21.24,0.81,0.86,270.0],[-5.25,-22.75,0.81,0.86,270.0],[5.09,-2.62,0.81,0.86,0.0],[3.58,-2.62,0.81,0.86,0.0],[-17.64,11.0,1.15,0.6,0],[-17.64,17.4,1.15,0.6,0],[-17.64,11.8,1.15,0.6,0],[-17.64,16.6,1.15,0.6,0],[-17.64,14.45,1.15,0.3,0],[-17.64,13.95,1.15,0.3,0],[-17.64,14.95,1.15,0.3,0],[-17.64,15.45,1.15,0.3,0],[-17.64,15.95,1.15,0.3,0],[-17.64,13.45,1.15,0.3,0],[-17.64,12.95,1.15,0.3,0],[-17.64,12.45,1.15,0.3,0],[-18.25,-2.05,0.49,1.16,270.0],[-18.25,-1.1,0.49,1.16,270.0],[-18.25,-0.15,0.49,1.16,270.0],[-15.95,-0.15,0.49,1.18,270.0],[-15.95,-2.05,0.49,1.18,270.0],[-21.71,4.45,0.28,0.66,270.0],[-21.71,4.95,0.28,0.66,270.0],[-21.71,5.45,0.28,0.66,270.0],[-21.71,5.95,0.28,0.66,270.0],[-18.89,5.95,0.28,0.66,270.0],[-18.89,5.45,0.28,0.66,270.0],[-18.89,4.95,0.28,0.66,270.0],[-18.89,4.45,0.28,0.66,270.0],[-20.3,5.2,2.44,1.6,270.0],[-1.97,8.05,0.4,2.1,180.0],[2.58,14.95,0.4,2.1,180.0],[1.93,14.95,0.4,2.1,180.0],[1.28,14.95,0.4,2.1,180.0],[0.63,14.95,0.4,2.1,180.0],[-0.02,14.95,0.4,2.1,180.0],[-0.67,14.95,0.4,2.1,180.0],[-1.32,14.95,0.4,2.1,180.0],[-1.97,14.95,0.4,2.1,180.0],[-1.32,8.05,0.4,2.1,180.0],[-0.67,8.05,0.4,2.1,180.0],[-0.02,8.05,0.4,2.1,180.0],[2.58,8.05,0.4,2.1,180.0],[1.93,8.05,0.4,2.1,180.0],[1.28,8.05,0.4,2.1,180.0],[0.63,8.05,0.4,2.1,180.0],[11.29,19.27,0.59,2.05,0.0],[12.56,19.27,0.59,2.05,0.0],[13.83,19.27,0.59,2.05,0.0],[15.1,19.27,0.59,2.05,0.0],[11.29,13.73,0.59,2.05,0.0],[12.56,13.73,0.59,2.05,0.0],[13.83,13.73,0.59,2.05,0.0],[15.1,13.73,0.59,2.05,0.0],[21.95,8.75,0.42,0.6,90.0],[21.95,9.4,0.42,0.6,90.0],[21.95,10.05,0.42,0.6,90.0],[20.05,10.05,0.42,0.6,270.0],[20.05,9.4,0.42,0.6,270.0],[20.05,8.75,0.42,0.6,270.0],[-11.58,-3.07,1.1,2.4,270.0],[-20.58,-3.07,1.1,2.4,270.0],[-20.58,-19.22,1.1,2.4,270.0],[-11.58,-19.22,1.1,2.4,270.0],[-9.61,-17.84,0.62,1.4,270.0],[-9.61,-16.74,0.62,1.4,270.0],[-9.61,-15.64,0.62,1.4,270.0],[-9.61,-14.54,0.62,1.4,270.0],[-9.61,-13.44,0.62,1.4,270.0],[-9.61,-12.34,0.62,1.4,270.0],[-9.61,-11.24,0.62,1.4,270.0],[-9.61,-10.14,0.62,1.4,270.0],[-9.61,-9.04,0.62,1.4,270.0],[-5.25,-16.6,0.81,0.86,180.0],[-3.75,-16.6,0.81,0.86,180.0],[-5.25,-18.8,0.81,0.86,180.0],[-3.75,-18.8,0.81,0.86,180.0]],"H":[["J1",-11.37,7.8,1.57,0.55],["J1",-11.37,5.26,1.7,0.55],["H1",-23.0,23.0,3.0,0.75],["H2",23.0,23.0,3.0,0.75],["H3",-23.0,-23.0,3.0,0.75],["H4",23.0,-23.0,3.0,0.75],["J2",22.9,12.83,1.57,0.55],["J2",22.9,15.37,1.7,0.55],["USB",-22.4,9.88,1.0,0.3],["USB",-22.4,18.52,1.0,0.3],["USB",-18.22,9.88,1.05,0.3],["USB",-18.22,18.52,1.05,0.3]]};
+  function buildEissBoard(parent) {
+    const D = EISS_DATA;
+    const s = 1.8 / 50;                         // 50 mm -> 1.8 đơn vị (vừa khung 2.2 × 1.8 cũ)
+    const root = new THREE.Group();
+    root.scale.setScalar(s);
+    root.position.y = 0.8 * s;                  // đáy bo = mặt dưới module
+    parent.add(root);
+    const M = (c, o = {}) => new THREE.MeshStandardMaterial(Object.assign({ color: c, roughness: 0.5, metalness: 0.15 }, o));
+    const gold = M(0xd9a441, { roughness: 0.3, metalness: 0.75 }), black = M(0x050607), metal = M(0xb8bfc6, { metalness: 0.6, roughness: 0.35 });
+    const BX = new THREE.BoxGeometry(1, 1, 1), CY = new THREE.CylinderGeometry(0.5, 0.5, 1, 16);
+    const noSh = (o) => { o.userData.noShadow = true; return o; };
+    const mesh = (g, m, x, y, z, sx = 1, sy = 1, sz = 1, ry = 0, p = root) => {
+      const o = new THREE.Mesh(g, m); o.position.set(x, y, z); o.scale.set(sx, sy, sz); o.rotation.y = ry; p.add(o); return o;
+    };
+    const box = (p, w, h, d, m, x, y, z) => mesh(BX, m, x, y, z, w, h, d, 0, p);
+    const poly = (p, r, m) => {
+      const c = new THREE.CurvePath();
+      for (let i = 1; i < p.length; i++) c.add(new THREE.LineCurve3(new THREE.Vector3(...p[i - 1]), new THREE.Vector3(...p[i])));
+      return new THREE.Mesh(new THREE.TubeGeometry(c, p.length * 4, r, 6), m);
+    };
+    // PCB
+    box(root, 50, 1.6, 50, M(0x0b4a2f, { roughness: 0.7, metalness: 0 }), 0, 0, 0);
+    // đường mạch lớp trên
+    const NC = { '+3V3': '#ff6b35', GND: '#8b9aa3', AGND: '#8b9aa3', SDA: '#38bdf8', SCL: '#a78bfa', VOUT: '#f472b6', VIN: '#fb7185', RFB: '#fbbf24', VBUS: '#fb923c', 'BAT+': '#f87171' };
+    const pos = [], col = [], idx = []; let v = 0;
+    for (const [l, n, w, a] of D.T) {
+      if (l != 1) continue;
+      const k = new THREE.Color(NC[n] || '#c99556'), h = Math.max(w, 0.2) / 2, y = 0.83;
+      for (let i = 0; i < a.length - 2; i += 2) {
+        const dx = a[i + 2] - a[i], dz = a[i + 3] - a[i + 1], d = Math.hypot(dx, dz); if (d < 0.01) continue;
+        const nx = -dz / d * h, nz = dx / d * h;
+        pos.push(a[i] + nx, y, a[i + 1] + nz, a[i] - nx, y, a[i + 1] - nz, a[i + 2] - nx, y, a[i + 3] - nz, a[i + 2] + nx, y, a[i + 3] + nz);
+        for (let j = 0; j < 4; j++) col.push(k.r, k.g, k.b);
+        idx.push(v, v + 1, v + 2, v, v + 2, v + 3); v += 4;
+      }
+    }
+    const tg = new THREE.BufferGeometry();
+    tg.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+    tg.setAttribute('color', new THREE.Float32BufferAttribute(col, 3));
+    tg.setIndex(idx); tg.computeVertexNormals();
+    root.add(noSh(new THREE.Mesh(tg, M(0xffffff, { vertexColors: true, side: THREE.DoubleSide, transparent: true, opacity: 0.22, depthWrite: false }))));
+    // pad + via
+    const dm = new THREE.Object3D();
+    const pads = new THREE.InstancedMesh(BX, gold, D.P.length);
+    D.P.forEach(([x, z, w, h, r], i) => { dm.position.set(x, 0.84, z); dm.rotation.set(0, -r * Math.PI / 180, 0); dm.scale.set(w, 0.08, h); dm.updateMatrix(); pads.setMatrixAt(i, dm.matrix); });
+    root.add(noSh(pads));
+    const vias = new THREE.InstancedMesh(CY, gold, D.V.length);
+    D.V.forEach(([x, z, d], i) => { dm.position.set(x, 0, z); dm.rotation.set(0, 0, 0); dm.scale.set(d, 1.7, d); dm.updateMatrix(); vias.setMatrixAt(i, dm.matrix); });
+    root.add(noSh(vias));
+    for (const [des, x, z, r, hr] of D.H) {
+      mesh(CY, gold, x, 0, z, r * 2, 1.64, r * 2); mesh(CY, black, x, 0, z, hr * 2, 1.7, hr * 2);
+      if (des[0] == 'J') box(root, 0.64, 7.2, 0.64, gold, x, 4.2, z);
+    }
+    // linh kiện
+    const bm = {}, cm = { U: 0x14171c, X: 0x14171c, I: 0x14171c, R: 0x1b1b1d, C: 0x9a7b57, D: 0x1a1a1a, Q: 0x1a1a1a, L: 0xff5a3c, S: 0x9aa3ab, J: 0x17191d };
+    for (const [des, val, pkg, t, x, z, a, b, ang, h] of D.B) {
+      if (des == 'IC1') {
+        const g = new THREE.Group(); g.position.set(x, 0.8, z); root.add(g);
+        box(g, a, 0.8, b, M(0x1b2a3a), 0, 0.46, 0); box(g, a - 0.4, 2.4, b - 7.1, metal, 0, 2.0, 3.5);
+        const tt = []; for (let i = 0; i <= 10; i++) tt.push([-6.5 + i * 1.3, 0.9, i % 2 ? -11.4 : -8.2]);
+        g.add(poly(tt, 0.14, gold));
+        continue;
+      }
+      let m = bm[t] || (bm[t] = M(cm[t] || 0x222222, t == 'L' ? { emissive: 0x8a1500 } : {}));
+      if (des == 'USB') m = metal;
+      if (des == 'U6') m = M(0x8a929a, { metalness: 0.6 });
+      mesh(BX, m, x, 0.8 + h / 2, z, a, h, b, -ang);
+      if (des == 'USB' || des == 'U6') box(root, 0.3, des == 'USB' ? 2.4 : 1, des == 'USB' ? 7.6 : 11, black, x - a / 2 + 0.1, 0.8 + h / 2, z);
+    }
+  }
+
+  function buildInternals() {
+    internalRoot = new THREE.Group();
+    internalRoot.scale.setScalar(0.85);
+    device.add(internalRoot);
+
+    // ==================================================================
+    // Perfboard compact 47 × 35 mm
+    // ==================================================================
+    const pcb = new THREE.Group();
+    pcb.userData.infoKey = 'pcb';
+    pcb.position.set(0, 0.76, -0.75);
+    internalRoot.add(pcb);
+
+    const perfTop = new THREE.MeshStandardMaterial({
+      map: createPerfboardTexture(), roughness: 0.72, metalness: 0.04
+    });
+    const perfEdge = std(0x7fa987, { roughness: 0.78, metalness: 0.02 });
+    const perfBoard = new THREE.Mesh(
+      new THREE.BoxGeometry(4.7, 0.12, 3.5),
+      [perfEdge, perfEdge, perfTop, perfTop, perfEdge, perfEdge]
+    );
+    perfBoard.castShadow = true;
+    perfBoard.receiveShadow = true;
+    pcb.add(perfBoard);
+    addPerfboardHoles(pcb, 0, 0, 4.7, 3.5);
+
+    [[-2.2, -1.55], [2.2, -1.55], [-2.2, 1.55], [2.2, 1.55]].forEach(([x, z]) => {
+      addCylinder(pcb, 0.045, 0.045, 0.46, std(COL.brass, { metalness: 0.82, roughness: 0.28 }), x, -0.28, z, 'y', 10);
+      addCylinder(pcb, 0.065, 0.065, 0.02, std(0xc9d2cc, { metalness: 0.8, roughness: 0.25 }), x, 0.072, z, 'y', 10);
+    });
+
+    const perfInk = canvasTexture(512, 220, (ctx, W, H) => {
+      ctx.clearRect(0, 0, W, H);
+      ctx.strokeStyle = 'rgba(245,255,246,.4)';
+      ctx.lineWidth = 2;
+      ctx.strokeRect(10, 10, W - 20, H - 20);
+      ctx.fillStyle = 'rgba(19,54,38,.72)';
+      ctx.font = '700 44px "Be Vietnam Pro", sans-serif';
+      ctx.fillText('Cim Ng', 26, H - 70);
+      ctx.fillStyle = 'rgba(23,64,44,.5)';
+      ctx.font = '500 17px "IBM Plex Mono", monospace';
+      ctx.fillText('PERFBOARD · 2-SIDED · 47 × 35 mm', 26, H - 34);
+    });
+    const perfInkMesh = new THREE.Mesh(
+      new THREE.PlaneGeometry(1.55, 0.66),
+      new THREE.MeshBasicMaterial({ map: perfInk, transparent: true, depthWrite: false, opacity: 0.9 })
+    );
+    perfInkMesh.rotation.x = -Math.PI / 2;
+    perfInkMesh.position.set(-1.72, 0.077, 1.2);
+    perfInkMesh.userData.noShadow = true;
+    pcb.add(perfInkMesh);
+
+    // ==================================================================
+    // Pin LiPo trắng, đặt phía trước bo mạch
+    // ==================================================================
+    const battery = new THREE.Group();
+    battery.userData.infoKey = 'battery';
+    battery.position.set(-0.8, 0.52, 2.02);
+    internalRoot.add(battery);
+
+    const foil = std(0xd8dcdb, { metalness: 0.45, roughness: 0.3 });
+    const pouch = roundedSlab(2.65, 1.8, 0.1, 0.34, foil, 0.04);
+    battery.add(pouch);
+    // mối hàn ép mép túi (bên trái)
+    addBox(battery, 0.24, 0.05, 1.74, std(0xe6e9e8, { metalness: 0.5, roughness: 0.34 }), -1.43, -0.1, 0);
+    for (let i = 0; i < 9; i++) addBox(battery, 0.2, 0.012, 0.03, std(0xbfc4c3, { metalness: 0.5, roughness: 0.4 }), -1.43, -0.07, -0.76 + i * 0.19, false);
+    const foilDecal = new THREE.Mesh(
+      new THREE.PlaneGeometry(2.55, 1.7),
+      new THREE.MeshStandardMaterial({ map: canvasTexture(1024, 684, (ctx, W, H) => {
+        const rnd = mulberry32(11);
+        ctx.clearRect(0, 0, W, H);
+        const g = ctx.createLinearGradient(0, 0, W, H);
+        g.addColorStop(0, 'rgba(255,255,255,.35)'); g.addColorStop(0.5, 'rgba(255,255,255,0)'); g.addColorStop(1, 'rgba(90,100,100,.22)');
+        ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
+        ctx.lineCap = 'round';
+        for (let i = 0; i < 26; i++) {
+          ctx.strokeStyle = rnd() < 0.5 ? 'rgba(255,255,255,.35)' : 'rgba(80,90,90,.16)';
+          ctx.lineWidth = 2 + rnd() * 5;
+          const x = rnd() * W, y = rnd() * H;
+          ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x + (rnd() - 0.5) * 360, y + (rnd() - 0.5) * 240); ctx.stroke();
+        }
+        ctx.fillStyle = 'rgba(70,80,80,.2)'; ctx.font = '500 26px "IBM Plex Mono", monospace';
+        ctx.fillText('3.7V  Li-Po  PROTECTED', 90, 120);
+      }), transparent: true, roughness: 0.35, metalness: 0.2, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 })
+    );
+    foilDecal.rotation.x = -Math.PI / 2; foilDecal.position.y = 0.213; foilDecal.userData.noShadow = true;
+    battery.add(foilDecal);
+    // băng keo Kapton cam vàng quấn đầu pin
+    const kap = std(0xd9962c, { roughness: 0.32, metalness: 0.12 });
+    addBox(battery, 0.3, 0.36, 1.84, kap, 1.3, 0, 0);
+    addBox(battery, 0.5, 0.02, 1.8, kap, 1.18, 0.205, 0, false);
+    // lá tab niken + dây đỏ/đen + giắc JST đen
+    addBox(battery, 0.22, 0.03, 0.2, std(0xd2b25d, { metalness: 0.8, roughness: 0.26 }), 1.52, 0.02, -0.12, false);
+    addBox(battery, 0.22, 0.03, 0.2, std(0xd2b25d, { metalness: 0.8, roughness: 0.26 }), 1.52, 0.02, 0.12, false);
+    addTube(battery, [[1.5, 0.03, -0.12], [1.72, 0.04, -0.02], [1.84, 0.06, -0.3], [1.82, 0.1, -0.52]], 0xb4342b, 0.026);
+    addTube(battery, [[1.5, 0.03, 0.12], [1.76, 0.04, 0.24], [1.98, 0.06, -0.05], [1.98, 0.1, -0.52]], 0x0b0d0c, 0.026);
+    addBox(battery, 0.4, 0.17, 0.22, std(0x101312, { roughness: 0.55 }), 1.9, 0.12, -0.63);
+    addBox(battery, 0.1, 0.02, 0.1, std(0x000000, { roughness: 0.9 }), 1.82, 0.215, -0.63, false);
+    addBox(battery, 0.1, 0.02, 0.1, std(0x000000, { roughness: 0.9 }), 1.98, 0.215, -0.63, false);
+    addBox(internalRoot, 3.16, 0.08, 2.04, std(0x1b2620, { roughness: 0.95 }), -0.8, 0.275, 2.02, false);
+    addBox(internalRoot, 0.14, 0.12, 2.0, std(0x2b3a31, { roughness: 0.9 }), -2.3, 0.34, 2.02, false);
+    addBox(internalRoot, 0.14, 0.12, 2.0, std(0x2b3a31, { roughness: 0.9 }), 0.7, 0.34, 2.02, false);
+
+    // ==================================================================
+    // Các module — dựng theo ảnh linh kiện thật
+    // ==================================================================
+    const K = pbMats();
+    const modGroup = (key, x, y, z) => {
+      const g = new THREE.Group(); g.userData.infoKey = key; g.position.set(x, y, z); internalRoot.add(g); return g;
+    };
+    const padDot = (g, x, z, r) => addCylinder(g, r || 0.055, r || 0.055, 0.014, K.lead, x, 0.108, z, 'y', 14);
+    const silk = (ctx) => { ctx.fillStyle = 'rgba(245,248,250,.92)'; ctx.font = '600 22px "IBM Plex Mono", monospace'; };
+    const vtext = (ctx, t, x, z) => { ctx.save(); ctx.translate(x, z); ctx.rotate(-Math.PI / 2); ctx.fillText(t, 0, 0); ctx.restore(); };
+
+    // ---------------- TP4056 (xanh dương, micro-USB, 2 IC, 4 chân) ----------------
+    const tp = modGroup('tp4056', -1.65, 0.82, 0.0);
+    {
+      const w = 1.0, d = 1.2;
+      tp.add(boardMesh(w, d, 0x1c4fb0));
+      decal(tp, w, d, (ctx, W, H, X, Z) => {
+        ctx.strokeStyle = 'rgba(120,170,255,.35)'; ctx.lineWidth = 4;
+        [[-0.3, -0.3, -0.3, 0.45], [0.3, -0.35, 0.3, 0.4], [-0.4, 0.1, 0.4, 0.1]].forEach((l) => { ctx.beginPath(); ctx.moveTo(X(l[0]), Z(l[1])); ctx.lineTo(X(l[2]), Z(l[3])); ctx.stroke(); });
+        silk(ctx); ctx.font = '600 20px "IBM Plex Mono", monospace';
+        ['OUT-', 'B-', 'B+', 'OUT+'].forEach((t, i) => vtext(ctx, t, X([-0.38, -0.22, 0.24, 0.4][i]) + 7, Z(0.5)));
+        ctx.fillText('IN+', X(-0.46), Z(-0.4)); ctx.fillText('IN-', X(0.26), Z(-0.4));
+        ctx.font = '600 22px "IBM Plex Mono", monospace'; ctx.fillText('TP4056', X(-0.14), Z(-0.02));
+      });
+      addBox(tp, 0.42, 0.13, 0.36, K.lead, 0, 0.165, -0.5);              // vỏ micro-USB
+      addBox(tp, 0.34, 0.06, 0.06, K.ic, 0, 0.165, -0.685, false);        // khe cắm
+      soic(tp, K, 0.02, -0.15, 0.3, 0.2, 4);
+      soic(tp, K, 0.02, 0.17, 0.3, 0.2, 4);
+      addBox(tp, 0.12, 0.05, 0.1, K.ic, 0.32, 0.125, 0.4, false);
+      [[-0.32, -0.05, 0], [-0.32, 0.1, 0], [-0.3, 0.3, 0], [0.3, -0.12, 0], [0.34, 0.17, 0], [-0.1, 0.42, 1.57]].forEach((r) => smdRes(tp, K, r[0], r[1], r[2]));
+      addBox(tp, 0.1, 0.03, 0.06, std(0xff4437, { emissive: 0x8a1009, emissiveIntensity: 1.6 }), 0.32, 0.118, -0.3, false);
+      addBox(tp, 0.1, 0.03, 0.06, std(0x5cff9d, { emissive: 0x106b38, emissiveIntensity: 1.2 }), 0.32, 0.118, -0.2, false);
+      padDot(tp, -0.42, -0.52); padDot(tp, 0.42, -0.52);
+      [-0.38, -0.22, 0.24, 0.4].forEach((x) => legPin(tp, K, x, d / 2 - 0.03, 0, 1, 0.3));
+    }
+
+    // ---------------- ESP32-S3 mini (xanh navy, chân castellated, header 6 chân) ----------------
+    const esp = modGroup('esp32', -1.18, 0.82, -1.42);
+    {
+      const w = 1.4, d = 1.5;
+      esp.add(boardMesh(w, d, 0x16337a));
+      decal(esp, w, d, (ctx, W, H, X, Z) => {
+        ctx.fillStyle = '#d9ae4c';
+        for (let i = 0; i < 9; i++) ctx.fillRect(X(-0.6 + i * 0.15) - 11, Z(-d / 2) , 22, 34);
+        for (let i = 0; i < 7; i++) { ctx.fillRect(X(-w / 2), Z(-0.55 + i * 0.18) - 11, 34, 22); ctx.fillRect(X(w / 2) - 34, Z(-0.55 + i * 0.18) - 11, 34, 22); }
+        ctx.fillStyle = 'rgba(8,20,60,.9)';
+        for (let i = 0; i < 9; i++) { ctx.beginPath(); ctx.arc(X(-0.6 + i * 0.15), Z(-d / 2), 8, 0, Math.PI * 2); ctx.fill(); }
+        ctx.strokeStyle = 'rgba(220,235,255,.45)'; ctx.lineWidth = 3; ctx.strokeRect(X(-0.28), Z(-0.3), 0.6 * 400, 0.62 * 400);
+        silk(ctx); ctx.font = '600 18px "IBM Plex Mono", monospace'; ctx.fillText('X1', X(-0.62), Z(0.68)); ctx.fillText('A5', X(0.44), Z(0.68));
+        ctx.fillStyle = '#d33'; ctx.fillText('C3', X(0.0), Z(0.68));
+      });
+      addBox(esp, 0.62, 0.06, 0.62, K.ic, 0, 0.13, 0.0);                  // chip ESP32-S3 vuông
+      addBox(esp, 0.3, 0.012, 0.3, std(0x8d9490, { metalness: 0.8, roughness: 0.35 }), 0, 0.166, 0, false);
+      for (let i = 0; i < 12; i++) {
+        const t = -0.27 + i * 0.049;
+        [[t, -0.33, 0.03, 0.06], [t, 0.33, 0.03, 0.06], [-0.33, t, 0.06, 0.03], [0.33, t, 0.06, 0.03]].forEach((p) => addBox(esp, p[2], 0.012, p[3], K.lead, p[0], 0.11, p[1], false));
+      }
+      addBox(esp, 0.34, 0.045, 0.11, K.white, -0.06, 0.12, -0.6);          // đầu nối FPC
+      addBox(esp, 0.3, 0.02, 0.05, K.black, -0.06, 0.15, -0.6, false);
+      addBox(esp, 0.14, 0.04, 0.08, K.lead, -0.5, 0.12, 0.5);              // thạch anh
+      addBox(esp, 0.1, 0.035, 0.07, K.lead, 0.42, 0.12, 0.52);
+      [[-0.45, -0.4], [-0.5, -0.2], [0.45, -0.45], [0.48, 0.3], [-0.3, 0.55], [0.15, 0.58], [-0.48, 0.2]].forEach((r, i) => smdRes(esp, K, r[0], r[1], i % 2 ? 1.57 : 0, i % 3 === 0 ? K.tan : K.ic));
+      // header 6 chân bên phải
+      const hz = [-0.31, -0.16, -0.01, 0.14, 0.29, 0.44];
+      addBox(esp, 0.12, 0.09, 0.9, K.black, w / 2 - 0.14, 0.145, 0.065);
+      hz.forEach((z) => legPin(esp, K, w / 2 - 0.2, z, 1, 0, 0.28));
+    }
+
+    // ---------------- EIS AD5933 (xanh lá, nhiều IC, tụ đĩa xanh) ----------------
+    const eis = modGroup('ad5933', 1.2, 0.82, -1.52);
+    {
+      buildEissBoard(eis);
+    }
+
+    // ---------------- Boost DC-DC (bo đen, cuộn cảm tròn, chân 2 bên) ----------------
+    const boost = modGroup('boost', -0.2, 0.82, 0.2);
+    {
+      const w = 1.0, d = 0.55;
+      boost.add(boardMesh(w, d, 0x15181b));
+      decal(boost, w, d, (ctx, W, H, X, Z) => {
+        ctx.fillStyle = 'rgba(205,210,205,.85)'; ctx.font = '700 34px "IBM Plex Mono", monospace';
+        ctx.fillText('+', X(-0.46), Z(0.2)); ctx.fillText('−', X(-0.46), Z(-0.08)); ctx.fillText('+', X(0.38), Z(0.06)); ctx.fillText('−', X(0.38), Z(-0.12));
+        ctx.strokeStyle = 'rgba(205,210,205,.5)'; ctx.lineWidth = 3;
+        ctx.beginPath(); ctx.arc(X(0.0), Z(0.0), 0.2 * 400, 0, Math.PI * 2); ctx.stroke();
+      });
+      addCylinder(boost, 0.16, 0.16, 0.17, std(0x0c0e0d, { roughness: 0.4, metalness: 0.3 }), 0, 0.185, 0, 'y', 24);
+      addCylinder(boost, 0.12, 0.12, 0.02, std(0x9aa09c, { metalness: 0.85, roughness: 0.3 }), 0, 0.28, 0, 'y', 24);
+      const ring = new THREE.Mesh(new THREE.TorusGeometry(0.13, 0.016, 8, 24), std(0xb4bab6, { metalness: 0.85, roughness: 0.28 }));
+      ring.rotation.x = Math.PI / 2; ring.position.y = 0.285; boost.add(ring);
+      addBox(boost, 0.16, 0.06, 0.2, std(0x25292d, { roughness: 0.45 }), 0.3, 0.13, -0.04);
+      addBox(boost, 0.12, 0.05, 0.1, std(0x25292d, { roughness: 0.45 }), -0.3, 0.125, -0.12);
+      addCylinder(boost, 0.06, 0.06, 0.09, std(0x2a2f33, { metalness: 0.4, roughness: 0.4 }), -0.3, 0.145, 0.15, 'y', 12);
+      [[0.3, 0.2], [-0.15, -0.2], [0.15, -0.2]].forEach((r) => smdRes(boost, K, r[0], r[1], 0, std(0x2a2f33)));
+      [[-1, -0.08], [-1, 0.25], [1, -0.14], [1, 0.01]].forEach((p) => {
+        addBox(boost, 0.05, 0.05, 0.05, K.lead, p[0] * (w / 2 - 0.05), 0.125, p[1], false);
+        legPin(boost, K, p[0] * (w / 2 - 0.05), p[1], p[0], 0, 0.2);
+      });
+    }
+
+    // ---------------- GUVA-S12SD (xanh dương, vát góc, lỗ tròn, cảm biến SMD) ----------------
+    const uv = modGroup('uv', 0.95, 0.82, 0.25);
+    {
+      const w = 0.8, d = 0.85;
+      uv.add(boardMesh(w, d, 0x1c4fb0, { chamfer: 0.14, hole: [0, 0.0, 0.12] }));
+      decal(uv, w, d, (ctx, W, H, X, Z) => {
+        ctx.strokeStyle = 'rgba(245,248,250,.9)'; ctx.lineWidth = 5;
+        ctx.beginPath(); ctx.arc(X(0), Z(0), 0.17 * 400, 0, Math.PI * 2); ctx.stroke();
+        silk(ctx); ctx.font = '600 20px "IBM Plex Mono", monospace';
+        ['OUT', 'VCC', 'GND'].forEach((t, i) => vtext(ctx, t, X([-0.13, 0, 0.13][i]) + 7, Z(0.38)));
+      });
+      addBox(uv, 0.2, 0.05, 0.16, std(0x1a1d1f, { roughness: 0.4, metalness: 0.4 }), 0, 0.125, -0.3);   // gói cảm biến UV
+      addBox(uv, 0.1, 0.012, 0.07, std(0xe0642a, { emissive: 0x6b2308, emissiveIntensity: 0.7, roughness: 0.2 }), 0, 0.155, -0.3, false);
+      [[-0.28, 0.12, 1.57], [-0.28, 0.25, 1.57], [0.28, 0.2, 0]].forEach((r) => smdRes(uv, K, r[0], r[1], r[2]));
+      addBox(uv, 0.4, 0.07, 0.1, K.black, 0, 0.135, d / 2 + 0.05);
+      [-0.13, 0, 0.13].forEach((x) => legPin(uv, K, x, d / 2 + 0.03, 0, 1, 0.26));
+    }
+
+    // ==================================================================
+    // Cổng bút đo + dây nối
+    // ==================================================================
+    const probePort = new THREE.Group();
+    probePort.userData.infoKey = 'ad5933';
+    probePort.position.set(2.18, 0.95, 0.52);
+    internalRoot.add(probePort);
+    addBox(probePort, 0.36, 0.14, 0.46, std(0xdde1d6, { roughness: 0.52 }), 0, 0, 0, true);
+    for (let i = 0; i < 2; i++) {
+      addBox(probePort, 0.05, 0.03, 0.06, std(COL.gold, { metalness: 0.75 }), -0.04 + i * 0.08, 0.04, 0.23, false);
+    }
+
+    // J2 -> grommet: 2 dây (vàng = drive J2.1, xanh = sense J2.2) đi ra cáp bút đo
+    addTube(internalRoot, [
+      [2.14, 0.99, 0.76], [2.2, 1.02, 1.0], [2.5, 1.0, 1.35], [2.745, 0.97, 1.59]
+    ], 0xe1b94b, 0.016);
+    addTube(internalRoot, [
+      [2.22, 0.99, 0.76], [2.3, 1.03, 1.0], [2.58, 1.0, 1.35], [2.785, 0.97, 1.59]
+    ], 0x4aa8e8, 0.016);
+
+    // pin -> TP4056
+    addTube(internalRoot, [
+      [1.0, 0.66, 1.4], [0.6, 0.76, 1.1], [-0.1, 0.8, 0.85],
+      [-0.85, 0.8, 0.58], [-1.32, 0.84, 0.3]
+    ], 0xb4342b, 0.016);
+    addTube(internalRoot, [
+      [1.18, 0.66, 1.4], [0.5, 0.7, 1.05], [-0.2, 0.76, 0.75],
+      [-0.9, 0.76, 0.5], [-1.25, 0.8, 0.2]
+    ], 0x090b09, 0.016);
+
+    // TP -> ESP32 / boost
+    addTube(internalRoot, [
+      [-1.85, 0.86, -0.22], [-1.72, 0.9, -0.62], [-1.52, 0.86, -0.9]
+    ], 0xb4342b, 0.014);
+    addTube(internalRoot, [
+      [-1.74, 0.82, -0.16], [-1.6, 0.86, -0.56], [-1.44, 0.82, -0.82]
+    ], 0x090b09, 0.014);
+    addTube(internalRoot, [
+      [-1.18, 0.86, 0.24], [-0.84, 0.88, 0.2], [-0.58, 0.84, 0.2]
+    ], 0xb4342b, 0.013);
+    addTube(internalRoot, [
+      [-1.12, 0.82, 0.14], [-0.82, 0.84, 0.1], [-0.58, 0.8, 0.1]
+    ], 0x090b09, 0.013);
+
+    // ESP32 -> EIS
+    addTube(internalRoot, [
+      [-0.36, 0.9, -1.15], [0.0, 0.96, -1.32], [0.28, 0.88, -1.4]
+    ], 0xe1b94b, 0.012);
+    addTube(internalRoot, [
+      [-0.36, 0.86, -1.3], [0.0, 0.9, -1.45], [0.28, 0.84, -1.55]
+    ], 0x090b09, 0.012);
+
+    // EIS -> UV
+    addTube(internalRoot, [
+      [0.96, 0.9, -0.6], [0.95, 0.94, -0.18], [0.96, 0.86, 0.08]
+    ], 0xb4342b, 0.012);
+    addTube(internalRoot, [
+      [0.82, 0.86, -0.62], [0.8, 0.9, -0.2], [0.82, 0.82, 0.04]
+    ], 0x090b09, 0.012);
+    addTube(internalRoot, [
+      [1.08, 0.88, -0.56], [1.1, 0.92, -0.16], [1.1, 0.84, 0.06]
+    ], 0xe1b94b, 0.011);
+
+    // EIS -> cổng bút đo
+    [0xb4342b, 0x090b09, 0xe1b94b, 0xd06a3d].forEach((color, i) => {
+      addTube(internalRoot, [
+        [1.65, 0.92 + i * 0.007, 0.28],
+        [1.88, 0.96 + i * 0.007, 0.4],
+        [2.1, 0.94 + i * 0.007, 0.5]
+      ], color, 0.009);
+    });
+
+    const eisLed = new THREE.Mesh(new THREE.SphereGeometry(0.026, 8, 6), new THREE.MeshStandardMaterial({
+      color: 0x5cebb3, emissive: 0x3bd99d, emissiveIntensity: 2, roughness: 0.3
+    }));
+    eisLed.position.set(2.35, 1.0, 0.28);
+    internalRoot.add(eisLed);
+
+    // ==================================================================
+    // Nhãn
+    // ==================================================================
+    partLabels = [
+      { key: 'battery', text: 'LiPo 3.7V', color: '#f4b65f', x: -0.8, y: 1.45, z: 2.02 },
+      { key: 'tp4056', text: 'TP4056', color: '#6ed8ff', x: -1.65, y: 1.3, z: -0.25 },
+      { key: 'boost', text: 'Boost 12V', color: '#f4b65f', x: -0.2, y: 1.32, z: 0.62 },
+      { key: 'esp32', text: 'ESP32-S3', color: '#5cebb3', x: -1.18, y: 1.47, z: -1.72 },
+      { key: 'ad5933', text: 'EIS · AD5933', color: '#5cebb3', x: 1.2, y: 1.44, z: -1.78 },
+      { key: 'uv', text: 'GUVA-S12SD', color: '#6ed8ff', x: 0.95, y: 1.32, z: 0.34 },
+      { key: 'pcb', text: 'Perfboard 2 mặt', color: '#9bbfae', x: 0.1, y: 1.22, z: 1.1 }
+    ].map((item) => {
+      const sprite = makeLabelSprite(item.text, item.color, 0.8, true);
+      sprite.position.set(item.x, item.y, item.z);
+      internalRoot.add(sprite);
+      labelSprites.push(sprite);
+      return { ...item, sprite };
+    });
+  }
+
+  function buildProbe() {
+    probe = new THREE.Group();
+    probe.userData.infoKey = 'pen';
+    scene.add(probe);
+
+    const bodyTexture = createProbeBodyTexture();
+    const bodyMat = new THREE.MeshStandardMaterial({ map: bodyTexture, roughness: 0.38, metalness: 0.08 });
+    const capMat = std(0x26352f, { metalness: 0.5, roughness: 0.3 });
+    const body = new THREE.Mesh(new THREE.CylinderGeometry(0.44, 0.44, 4.2, 40), [bodyMat, capMat, capMat]);
+    body.position.y = 5.1;
+    body.castShadow = true;
+    probe.add(body);
+
+    const gripMat = std(0x203e35, { roughness: 0.62, metalness: 0.14 });
+    const grip = new THREE.Mesh(new THREE.CylinderGeometry(0.455, 0.455, 1.65, 40), gripMat);
+    grip.position.y = 2.17;
+    probe.add(grip);
+    for (let i = 0; i < 7; i++) {
+      const ring = new THREE.Mesh(new THREE.TorusGeometry(0.456, 0.012, 6, 32), std(0x3c6656, { roughness: 0.55 }));
+      ring.rotation.x = Math.PI / 2;
+      ring.position.y = 1.52 + i * 0.2;
+      probe.add(ring);
+    }
+
+    const nose = new THREE.Mesh(new THREE.CylinderGeometry(0.44, 0.32, 0.92, 40), std(0xe7ebe3, { roughness: 0.4 }));
+    nose.position.y = 0.86;
+    nose.castShadow = true;
+    probe.add(nose);
+    const collar = new THREE.Mesh(new THREE.TorusGeometry(0.42, 0.035, 8, 36), std(0x5cebb3, { metalness: 0.4, roughness: 0.35, emissive: 0x124c38, emissiveIntensity: 0.4 }));
+    collar.rotation.x = Math.PI / 2;
+    collar.position.y = 1.33;
+    probe.add(collar);
+    const collarDark = new THREE.Mesh(new THREE.TorusGeometry(0.44, 0.024, 8, 36), std(0x1d2d26));
+    collarDark.rotation.x = Math.PI / 2;
+    collarDark.position.y = 3.03;
+    probe.add(collarDark);
+
+    const cap = new THREE.Mesh(new THREE.CylinderGeometry(0.42, 0.44, 0.54, 36), capMat);
+    cap.position.y = 7.45;
+    probe.add(cap);
+    const capRing = new THREE.Mesh(new THREE.TorusGeometry(0.42, 0.025, 8, 36), std(COL.brass, { metalness: 0.75, roughness: 0.25 }));
+    capRing.rotation.x = Math.PI / 2;
+    capRing.position.y = 7.18;
+    probe.add(capRing);
+
+    const strain = new THREE.Mesh(new THREE.CylinderGeometry(0.16, 0.22, 0.42, 24), std(0x2d3732, { roughness: 0.6 }));
+    strain.position.y = 7.94;
+    probe.add(strain);
+    const neck = new THREE.Mesh(new THREE.CylinderGeometry(0.25, 0.31, 0.22, 28), std(0x16221d, { roughness: 0.44, metalness: 0.14 }));
+    neck.position.y = 0.49;
+    probe.add(neck);
+
+    const sensorBar = roundedSlab(0.82, 0.52, 0.18, 0.1, std(0x12241c, { roughness: 0.4, metalness: 0.2 }), 0.02);
+    sensorBar.position.y = 0.31;
+    sensorBar.castShadow = true;
+    probe.add(sensorBar);
+    addBox(probe, 0.5, 0.022, 0.05, std(0x5cebb3, { emissive: 0x2dbd8d, emissiveIntensity: 1.4, roughness: 0.3 }), 0, 0.377, -0.19, false);
+
+    // J2 · 2 chấu pogo: pin 1 = Drive (U5.S1), pin 2 = Sense (U4B)
+    const pinDefs = [
+      { x: -0.2, role: 'Drive · J2.1', color: 0xf4b65f },
+      { x: 0.2, role: 'Sense · J2.2', color: 0x6ed8ff }
+    ];
+    pinDefs.forEach((pin) => {
+      const pinMat = std(COL.gold, { metalness: 0.92, roughness: 0.18 });
+      const shaft = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.03, 0.3, 12), pinMat);
+      shaft.position.set(pin.x, 0.15, 0);
+      probe.add(shaft);
+      const tip = new THREE.Mesh(new THREE.SphereGeometry(0.04, 12, 8), pinMat);
+      tip.position.set(pin.x, 0.005, 0);
+      probe.add(tip);
+      const ring = new THREE.Mesh(new THREE.CylinderGeometry(0.075, 0.075, 0.018, 18), std(pin.color, {
+        emissive: pin.color, emissiveIntensity: 0.8, roughness: 0.28
+      }));
+      ring.position.set(pin.x, 0.388, 0);
+      probe.add(ring);
+      const dot = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.04, 0.012, 14), std(COL.gold, {
+        metalness: 0.9, roughness: 0.18, emissive: 0x5b3e0b, emissiveIntensity: 0.35
+      }));
+      dot.position.set(pin.x, 0.402, 0);
+      probe.add(dot);
+    });
+
+    // thin green PCB window on the nose
+    const windowMat = new THREE.MeshStandardMaterial({ color: 0x0b4a33, roughness: 0.48, metalness: 0.15 });
+    addBox(probe, 0.1, 0.48, 0.3, windowMat, 0, 0.84, 0.31);
+    addBox(probe, 0.11, 0.03, 0.12, std(0xcfb05b, { metalness: 0.7 }), 0, 0.6, 0.4, false);
+
+    probeGoalPos = new THREE.Vector3();
+    probeGoalQuat = new THREE.Quaternion();
+    device.updateMatrixWorld(true);
+    probeDockAnchor.getWorldPosition(probeGoalPos);
+    probeDockAnchor.getWorldQuaternion(probeGoalQuat);
+    probe.position.copy(probeGoalPos);
+    probe.quaternion.copy(probeGoalQuat);
+    probe.scale.setScalar(0.82);
+
+    probe.traverse((child) => {
+      if (child.isMesh) {
+        probeHitMeshes.push(child);
+        child.castShadow = true;
+        child.receiveShadow = true;
+      }
+    });
+  }
+
+  function buildSkin() {
+    skinRoot = new THREE.Group();
+    skinRoot.position.set(SKIN.x, 0.032, SKIN.z);
+    scene.add(skinRoot);
+
+    const tray = roundedSlab(8.0, 7.0, 0.78, 0.12, std(0x091713, { roughness: 0.72 }), 0.04);
+    tray.position.y = 0.06;
+    tray.castShadow = true;
+    tray.receiveShadow = true;
+    skinRoot.add(tray);
+
+    // đầu nối cáp bút đo: cáp bám vào đây khi hộp thiết bị bị ẩn
+    const dockHousing = roundedSlab(0.95, 0.62, 0.1, 0.5, std(0x101713, { roughness: 0.55 }), 0.03);
+    dockHousing.position.set(CABLE_DOCK.x - 0.55, CABLE_DOCK.y, CABLE_DOCK.z);
+    dockHousing.castShadow = true;
+    skinRoot.add(dockHousing);
+    addCylinder(skinRoot, 0.11, 0.14, 0.24, std(0x2d3732, { roughness: 0.6 }), CABLE_DOCK.x - 0.05, CABLE_DOCK.y, CABLE_DOCK.z, 'x', 18);
+    addBox(skinRoot, 0.5, 0.02, 0.05, std(0x5cebb3, { emissive: 0x2dbd8d, emissiveIntensity: 1.2, roughness: 0.3 }), CABLE_DOCK.x - 0.58, CABLE_DOCK.y + 0.255, CABLE_DOCK.z, false);
+
+    const hypodermis = roundedSlab(7.58, 6.58, 0.68, 0.18, std(COL.hypodermis, { roughness: 0.78 }), 0.035);
+    hypodermis.position.y = 0.21;
+    skinRoot.add(hypodermis);
+    const dermis = roundedSlab(7.53, 6.53, 0.66, 0.18, std(COL.dermis, { roughness: 0.66 }), 0.03);
+    dermis.position.y = 0.39;
+    skinRoot.add(dermis);
+    const epidermis = roundedSlab(7.48, 6.48, 0.64, 0.09, std(COL.skin, { roughness: 0.6 }), 0.03);
+    epidermis.position.y = 0.525;
+    skinRoot.add(epidermis);
+
+    const topMat = new THREE.MeshStandardMaterial({
+      map: createSkinTexture(), color: 0xd9aa9b, transparent: true, roughness: 0.78, metalness: 0.01,
+      depthWrite: false
+    });
+    const top = new THREE.Mesh(new THREE.PlaneGeometry(7.4, 6.4), topMat);
+    top.name = 'skin-top';
+    top.rotation.x = -Math.PI / 2;
+    top.position.y = 0.604;
+    top.receiveShadow = true;
+    skinRoot.add(top);
+
+    // irregular lesion
+    const lesionGroup = new THREE.Group();
+    lesionGroup.name = 'lesion-group';
+    lesionGroup.userData.infoKey = 'lesion';
+    lesionGroup.position.y = 0.62;
+    skinRoot.add(lesionGroup);
+    const lesionShape = new THREE.Shape();
+    const rnd = mulberry32(91);
+    const points = [];
+    for (let i = 0; i < 76; i++) {
+      const angle = i / 76 * Math.PI * 2;
+      const radius = LESION_RADIUS * (0.9 + rnd() * 0.13 + Math.sin(angle * 3.4) * 0.025);
+      points.push(new THREE.Vector2(Math.cos(angle) * radius, Math.sin(angle) * radius));
+    }
+    lesionShape.setFromPoints(points);
+    const lesionGeo = new THREE.ShapeGeometry(lesionShape, 24);
+    lesionGeo.rotateX(-Math.PI / 2);
+    const lesionMat = new THREE.MeshStandardMaterial({
+      map: createLesionTexture(), roughness: 0.58, metalness: 0.02, side: THREE.DoubleSide
+    });
+    const lesionMesh = new THREE.Mesh(lesionGeo, lesionMat);
+    lesionMesh.name = 'lesion-mesh';
+    lesionMesh.position.y = 0.006;
+    lesionMesh.receiveShadow = true;
+    lesionGroup.add(lesionMesh);
+
+    const lesionRim = new THREE.Mesh(new THREE.RingGeometry(1.19, 1.26, 64), new THREE.MeshBasicMaterial({
+      color: 0xff9d7c, transparent: true, opacity: 0.22, side: THREE.DoubleSide, blending: THREE.AdditiveBlending, depthWrite: false
+    }));
+    lesionRim.rotation.x = -Math.PI / 2;
+    lesionRim.position.y = 0.004;
+    lesionGroup.add(lesionRim);
+    lesionGlow = lesionRim;
+
+    const healthyRing = new THREE.Mesh(new THREE.RingGeometry(0.56, 0.62, 48), new THREE.MeshBasicMaterial({
+      color: 0x5cebb3, transparent: true, opacity: 0.16, side: THREE.DoubleSide, depthWrite: false
+    }));
+    healthyRing.rotation.x = -Math.PI / 2;
+    healthyRing.position.set(-2.08, 0.606, 1.34);
+    skinRoot.add(healthyRing);
+    skinMarker = healthyRing;
+
+    // subtle front-edge scale bar
+    const lineMat = new THREE.MeshBasicMaterial({ color: 0xd4e9dd, transparent: true, opacity: 0.38 });
+    const bar = new THREE.Mesh(new THREE.BoxGeometry(1.42, 0.006, 0.02), lineMat);
+    bar.position.set(0, 0.607, 3.05);
+    skinRoot.add(bar);
+    for (let i = 0; i < 4; i++) {
+      const tick = new THREE.Mesh(new THREE.BoxGeometry(0.012, 0.006, i === 0 || i === 3 ? 0.14 : 0.08), lineMat);
+      tick.position.set(-0.71 + i * 0.473, 0.608, 3.02);
+      skinRoot.add(tick);
+    }
+
+    makeSkinLabels();
+  }
+
+  function buildCurrentEffects() {
+    currentGroup = new THREE.Group();
+    scene.add(currentGroup);
+    currentGroup.visible = false;
+
+    const glowMat = (color, opacity = 0.7) => new THREE.MeshBasicMaterial({
+      color, transparent: true, opacity, blending: THREE.AdditiveBlending,
+      depthWrite: false, side: THREE.DoubleSide
+    });
+
+    // Paths for current and voltage on the skin surface.
+    const y = SKIN.top + 0.032;
+    const currentCurve = new THREE.QuadraticBezierCurve3(
+      new THREE.Vector3(-0.2, y, 0),
+      new THREE.Vector3(0, y + 0.035, 0),
+      new THREE.Vector3(0.2, y, 0)
+    );
+    const voltageCurve = new THREE.QuadraticBezierCurve3(
+      new THREE.Vector3(-0.2, y + 0.008, 0),
+      new THREE.Vector3(0, y + 0.018, 0),
+      new THREE.Vector3(0.2, y + 0.008, 0)
+    );
+
+    const currentTube = new THREE.Mesh(new THREE.TubeGeometry(currentCurve, 28, 0.018, 6, false), glowMat(COL.amber, 0.72));
+    currentGroup.add(currentTube);
+    const voltageTube = new THREE.Mesh(new THREE.TubeGeometry(voltageCurve, 20, 0.012, 6, false), glowMat(COL.cyan, 0.78));
+    currentGroup.add(voltageTube);
+
+    const pinColors = [COL.amber, COL.cyan];
+    [-0.2, 0.2].forEach((x, i) => {
+      const ring = new THREE.Mesh(new THREE.RingGeometry(0.075, 0.105, 28), glowMat(pinColors[i], 0.8));
+      ring.rotation.x = -Math.PI / 2;
+      ring.position.set(x, y - 0.002, 0);
+      currentGroup.add(ring);
+      contactRings.push(ring);
+    });
+
+    const particleGeo = new THREE.SphereGeometry(0.025, 8, 6);
+    for (let i = 0; i < 7; i++) {
+      const mat = new THREE.MeshBasicMaterial({
+        color: i < 5 ? 0xffd082 : 0x9aeaff, transparent: true, opacity: 0.85,
+        blending: THREE.AdditiveBlending, depthWrite: false
+      });
+      const particle = new THREE.Mesh(particleGeo, mat);
+      particle.userData.curve = i < 5 ? currentCurve : voltageCurve;
+      particle.userData.offset = i / 7;
+      currentGroup.add(particle);
+      currentParticles.push(particle);
+    }
+
+    // soft footprint glow
+    const glowTexture = canvasTexture(256, 256, (ctx, W, H) => {
+      const g = ctx.createRadialGradient(W / 2, H / 2, 8, W / 2, H / 2, W / 2);
+      g.addColorStop(0, 'rgba(92,235,179,.32)');
+      g.addColorStop(0.45, 'rgba(92,235,179,.11)');
+      g.addColorStop(1, 'rgba(92,235,179,0)');
+      ctx.fillStyle = g;
+      ctx.fillRect(0, 0, W, H);
+    });
+    const glow = new THREE.Mesh(new THREE.PlaneGeometry(1.8, 1.8), new THREE.MeshBasicMaterial({
+      map: glowTexture, transparent: true, opacity: 0.8, depthWrite: false, blending: THREE.AdditiveBlending
+    }));
+    glow.rotation.x = -Math.PI / 2;
+    glow.position.y = SKIN.top + 0.026;
+    currentGroup.add(glow);
+  }
+
+  function buildScene() {
+    scene = new THREE.Scene();
+    camera = new THREE.PerspectiveCamera(38, 1, 0.1, 260);
+    cameraTarget = new THREE.Vector3(-2.8, 1.05, 1.0);
+    cameraGoalTarget = cameraTarget.clone();
+    currentRaycaster = new THREE.Raycaster();
+    currentMouse = new THREE.Vector2();
+    skinPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), -SKIN.top);
+    uiProjectVector = new THREE.Vector3();
+
+    scene.add(new THREE.HemisphereLight(0xd3fff0, 0x05110c, 0.36));
+    const key = new THREE.DirectionalLight(0xfff4e2, 0.72);
+    key.position.set(9, 16, 11);
+    key.castShadow = true;
+    key.shadow.mapSize.set(1024, 1024);
+    key.shadow.bias = -0.0005;
+    key.shadow.normalBias = 0.02;
+    Object.assign(key.shadow.camera, { left: -15, right: 15, top: 15, bottom: -15, near: 1, far: 55 });
+    scene.add(key);
+    const rim = new THREE.DirectionalLight(0x4fe3b1, 0.58);
+    rim.position.set(-11, 8, -9);
+    scene.add(rim);
+    const fill = new THREE.DirectionalLight(0x76bdf4, 0.3);
+    fill.position.set(8, 5, -11);
+    scene.add(fill);
+    const skinLight = new THREE.PointLight(0xffbea4, 0.45, 18, 2);
+    skinLight.position.set(SKIN.x - 1, 7, SKIN.z + 2);
+    scene.add(skinLight);
+
+    const floor = new THREE.Mesh(new THREE.PlaneGeometry(80, 80), new THREE.ShadowMaterial({ opacity: 0.42 }));
+    floor.rotation.x = -Math.PI / 2;
+    floor.position.y = -0.012;
+    floor.receiveShadow = true;
+    scene.add(floor);
+
+    const radialTexture = canvasTexture(512, 512, (ctx, W, H) => {
+      const g = ctx.createRadialGradient(W / 2, H / 2, 14, W / 2, H / 2, W / 2);
+      g.addColorStop(0, 'rgba(68,180,139,.2)');
+      g.addColorStop(0.5, 'rgba(31,102,77,.07)');
+      g.addColorStop(1, 'rgba(0,0,0,0)');
+      ctx.fillStyle = g;
+      ctx.fillRect(0, 0, W, H);
+    });
+    const glowPlane = new THREE.Mesh(new THREE.PlaneGeometry(27, 27), new THREE.MeshBasicMaterial({
+      map: radialTexture, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending
+    }));
+    glowPlane.rotation.x = -Math.PI / 2;
+    glowPlane.position.set(-1.3, 0.001, 0.2);
+    scene.add(glowPlane);
+
+    // faint technical rings under the measuring stage
+    const ringMat = new THREE.MeshBasicMaterial({ color: 0x50c99b, transparent: true, opacity: 0.08, side: THREE.DoubleSide, depthWrite: false });
+    [4.4, 5.6].forEach((radius) => {
+      const ring = new THREE.Mesh(new THREE.RingGeometry(radius, radius + 0.02, 96), ringMat);
+      ring.rotation.x = -Math.PI / 2;
+      ring.position.set(SKIN.x, 0.004, SKIN.z);
+      scene.add(ring);
+    });
+
+    device = new THREE.Group();
+    device.position.set(-2.8, 0.45, 0);
+    scene.add(device);
+
+    clock = new THREE.Clock();
+    shellMat = new THREE.MeshPhysicalMaterial({
+      color: 0xffffff, roughness: 0.44, metalness: 0.03,
+      clearcoat: 0.35, clearcoatRoughness: 0.4,
+      transparent: true, opacity: 0.85,
+      transmission: 0.3, thickness: 0.5, ior: 1.45
+    });
+    shellFadeMats.push(shellMat);
+
+    buildCase();
+    buildInternals();
+    buildSkin();
+    buildProbe();
+    buildCurrentEffects();
+
+    // Chỉ các chi tiết lớn mới đổ bóng để giảm draw-call cho shadow pass.
+    scene.traverse((object) => {
+      if (!object.isMesh) return;
+      if (object.userData.noShadow) {
+        object.castShadow = false;
+        object.receiveShadow = false;
+        return;
+      }
+      object.receiveShadow = true;
+      if (!object.geometry.boundingSphere) object.geometry.computeBoundingSphere();
+      const radius = object.geometry.boundingSphere ? object.geometry.boundingSphere.radius : 0;
+      object.castShadow = radius > 0.16;
+    });
+    // glow effects must not cast shadows
+    if (currentGroup) currentGroup.traverse((object) => {
+      if (object.isMesh) object.castShadow = false;
+    });
+
+    selectableMeshes = [];
+    scene.traverse((object) => {
+      if (!object.isMesh) return;
+      if (findOwner(object)) {
+        selectableMeshes.push(object);
+      }
+    });
+
+    probeGoalPos = new THREE.Vector3();
+    probeGoalQuat = new THREE.Quaternion();
+  }
+
+  function findOwner(object) {
+    let node = object;
+    while (node) {
+      if (node.userData && node.userData.infoKey) return node;
+      node = node.parent;
+    }
+    return null;
+  }
+
+  function getObjectByKey(key) {
+    let found = null;
+    if (!scene) return null;
+    scene.traverse((object) => {
+      if (!found && object.userData && object.userData.infoKey === key) found = object;
+    });
+    return found;
+  }
+
+  // --------------------------- camera ---------------------------
+  function applyWorkspaceCamera(workspace, instant = false) {
+    if (workspace === 'measure') {
+      camGoalTheta = 0.06;
+      camGoalPhi = 0.86;
+      camBaseDist = 17.8;
+      if (cameraGoalTarget) cameraGoalTarget.set(SKIN.x - 0.1, 2.6, SKIN.z);
+    } else if (state.caseMode === 'open') {
+      camGoalTheta = 0.58;
+      camGoalPhi = 1.04;
+      camBaseDist = 20.2;
+      if (cameraGoalTarget) cameraGoalTarget.set(-2.8, 2.45, 0.8);
+    } else if (state.caseMode === 'bare') {
+      camGoalTheta = 0.58;
+      camGoalPhi = 1.0;
+      camBaseDist = 12.8;
+      if (cameraGoalTarget) cameraGoalTarget.set(-2.8, 0.85, 0.8);
+    } else {
+      camGoalTheta = 0.58;
+      camGoalPhi = 1.02;
+      camBaseDist = 15.2;
+      if (cameraGoalTarget) cameraGoalTarget.set(-2.8, 1.05, 1.0);
+    }
+    if (instant) {
+      camTheta = camGoalTheta;
+      camPhi = camGoalPhi;
+      camZoom = 1;
+      if (cameraGoalTarget && cameraTarget) cameraTarget.copy(cameraGoalTarget);
+      updateCameraTransform();
+    }
+  }
+
+  function updateCameraTransform() {
+    if (!camera) return;
+    const width = els.stage.clientWidth || 1;
+    const height = els.stage.clientHeight || 1;
+    const aspect = width / height;
+    const maxScale = state.workspace === 'measure' ? 1.12 : 1.22;
+    const distanceScale = clamp(1.08 / aspect, 0.9, maxScale);
+    const radius = camBaseDist * camZoom * distanceScale;
+    const sinPhi = Math.sin(camPhi);
+    camera.position.set(
+      cameraTarget.x + radius * sinPhi * Math.sin(camTheta),
+      cameraTarget.y + radius * Math.cos(camPhi),
+      cameraTarget.z + radius * sinPhi * Math.cos(camTheta)
+    );
+    camera.lookAt(cameraTarget);
+    camera.aspect = aspect;
+    camera.updateProjectionMatrix();
+  }
+
+  function resetCamera() {
+    applyWorkspaceCamera(state.workspace);
+    camZoom = 1;
+    showToast('Đã đặt lại góc nhìn.');
+  }
+
+  function updateCamera(dt) {
+    if (!camera) return;
+    const damping = 1 - Math.pow(0.001, dt);
+    camTheta = lerp(camTheta, camGoalTheta, damping);
+    camPhi = lerp(camPhi, camGoalPhi, damping);
+    cameraTarget.lerp(cameraGoalTarget, damping);
+    updateCameraTransform();
+  }
+
+  // --------------------------- selection ---------------------------
+  function clearSelection3D() {
+    if (selectionBox) {
+      scene.remove(selectionBox);
+      if (selectionBox.geometry) selectionBox.geometry.dispose();
+      if (selectionBox.material) selectionBox.material.dispose();
+      selectionBox = null;
+    }
+    selectedGroup = null;
+    state.selected = null;
+  }
+
+  function setSelected3D(key) {
+    clearSelection3D();
+    const group = getObjectByKey(key);
+    if (!group) return;
+    state.selected = key;
+    selectedGroup = group;
+    selectionBox = new THREE.BoxHelper(group, 0x5cebb3);
+    selectionBox.material.transparent = true;
+    selectionBox.material.opacity = 0.68;
+    selectionBox.material.depthTest = false;
+    selectionBox.renderOrder = 45;
+    scene.add(selectionBox);
+  }
+
+  function updateSelectionBox(time) {
+    if (selectionBox && selectedGroup) {
+      selectionBox.setFromObject(selectedGroup);
+      selectionBox.material.opacity = 0.4 + Math.sin(time * 3.1) * 0.16;
+    }
+  }
+
+  // --------------------------- pick & controls ---------------------------
+  function pointerToNdc(event) {
+    const rect = renderer.domElement.getBoundingClientRect();
+    currentMouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
+    currentMouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
+    return currentMouse;
+  }
+
+  function raycastProbe(event) {
+    if (!camera) return false;
+    currentRaycaster.setFromCamera(pointerToNdc(event), camera);
+    const hits = currentRaycaster.intersectObjects(probeHitMeshes, false);
+    return hits.length > 0;
+  }
+
+  function tryPick(event) {
+    if (!camera || state.workspace !== 'device') return;
+    currentRaycaster.setFromCamera(pointerToNdc(event), camera);
+    const hits = currentRaycaster.intersectObjects(selectableMeshes, false);
+    for (const hit of hits) {
+      const object = hit.object;
+      if (!isActuallyVisible(object)) continue;
+      if (state.caseMode === 'xray' && object.userData.shell) continue;
+      const owner = findOwner(object);
+      if (!owner) continue;
+      const key = owner.userData.infoKey;
+      if (!MODULE_INFO[key]) continue;
+      if (key === 'skin' || key === 'lesion') continue;
+      showComponent(key);
+      return;
+    }
+    // empty click closes the inspector
+    if (els.componentCard.classList.contains('is-open')) closeComponent();
+  }
+
+  function isActuallyVisible(object) {
+    let node = object;
+    while (node) {
+      if (!node.visible) return false;
+      node = node.parent;
+    }
+    return true;
+  }
+
+  function probePlanePoint(event) {
+    currentRaycaster.setFromCamera(pointerToNdc(event), camera);
+    const hit = new THREE.Vector3();
+    if (currentRaycaster.ray.intersectPlane(skinPlane, hit)) return hit;
+    return null;
+  }
+
+  function bind3DControls() {
+    const canvas = renderer.domElement;
+    canvas.tabIndex = 0;
+    canvas.setAttribute('aria-label', 'Mô hình 3D tương tác của thiết bị AURA');
+
+    canvas.addEventListener('pointerdown', (event) => {
+      if (event.button !== undefined && event.button !== 0 && event.pointerType === 'mouse') return;
+      canvas.setPointerCapture(event.pointerId);
+      pointerMap.set(event.pointerId, { x: event.clientX, y: event.clientY });
+      pointerTravel = 0;
+      orbitPointer = event.pointerId;
+      lastPointer = { x: event.clientX, y: event.clientY };
+
+      if (pointerMap.size === 2) {
+        const points = Array.from(pointerMap.values());
+        pinchStart = Math.hypot(points[0].x - points[1].x, points[0].y - points[1].y);
+        pinchZoomStart = camZoom;
+        draggingProbe = false;
+        state.dragging = false;
+        return;
+      }
+
+      if (state.workspace === 'measure' && raycastProbe(event)) {
+        const point = probePlanePoint(event);
+        if (point) {
+          draggingProbe = true;
+          state.dragging = true;
+          dragOffset.x = point.x - (SKIN.x + state.probe.u);
+          dragOffset.z = point.z - (SKIN.z + state.probe.v);
+          canvas.classList.add('is-dragging');
+          return;
+        }
+      }
+      canvas.classList.add('is-dragging');
+    });
+
+    canvas.addEventListener('pointermove', (event) => {
+      if (!pointerMap.has(event.pointerId)) {
+        if (state.workspace === 'measure' && performance.now() - hoverCheckAt > 90) {
+          hoverCheckAt = performance.now();
+          canvas.classList.toggle('is-probe', raycastProbe(event));
+        }
+        return;
+      }
+      const previous = pointerMap.get(event.pointerId);
+      const dx = event.clientX - previous.x;
+      const dy = event.clientY - previous.y;
+      pointerTravel += Math.abs(dx) + Math.abs(dy);
+      pointerMap.set(event.pointerId, { x: event.clientX, y: event.clientY });
+
+      if (pointerMap.size === 2 && pinchStart > 0) {
+        const points = Array.from(pointerMap.values());
+        const distance = Math.hypot(points[0].x - points[1].x, points[0].y - points[1].y);
+        camZoom = clamp(pinchZoomStart * pinchStart / Math.max(30, distance), 0.58, 1.9);
+        return;
+      }
+
+      if (draggingProbe && state.workspace === 'measure') {
+        const point = probePlanePoint(event);
+        if (point) {
+          onProbeDragged(
+            point.x - SKIN.x - dragOffset.x,
+            point.z - SKIN.z - dragOffset.z
+          );
+        }
+        return;
+      }
+
+      // orbit: horizontal drag rotates around target, vertical changes elevation
+      camGoalTheta -= dx * 0.008;
+      camGoalPhi = clamp(camGoalPhi - dy * 0.007, 0.22, 1.46);
+    });
+
+    function endPointer(event) {
+      const wasDragging = draggingProbe;
+      pointerMap.delete(event.pointerId);
+      if (pointerMap.size === 0) {
+        canvas.classList.remove('is-dragging');
+        if (draggingProbe) state.dragging = false;
+        draggingProbe = false;
+        if (!wasDragging && pointerTravel < 6 && state.workspace === 'device') tryPick(event);
+        orbitPointer = null;
+        pinchStart = 0;
+      } else if (pointerMap.size === 1) {
+        pinchStart = 0;
+        const remaining = Array.from(pointerMap.values())[0];
+        lastPointer = { x: remaining.x, y: remaining.y };
+      }
+    }
+
+    canvas.addEventListener('pointerup', endPointer);
+    canvas.addEventListener('pointercancel', endPointer);
+    canvas.addEventListener('wheel', (event) => {
+      event.preventDefault();
+      camZoom = clamp(camZoom * (1 + event.deltaY * 0.0011), 0.58, 1.9);
+    }, { passive: false });
+    canvas.addEventListener('dblclick', () => resetCamera());
+    canvas.addEventListener('contextmenu', (event) => event.preventDefault());
+  }
+
+  // --------------------------- labels ---------------------------
+  function updateLabelVisibility3D() {
+    const visible = state.labels && state.workspace === 'device' && state.caseMode !== 'closed';
+    partLabels.forEach((item) => {
+      item.sprite.visible = visible;
+    });
+  }
+
+  // --------------------------- probe tag & dynamic updates ---------------------------
+  function hideProbeTag() {
+    probeTagVisible = false;
+    els.probeTag.classList.remove('is-visible');
+  }
+
+  function updateProbeTag() {
+    if (!camera || state.workspace !== 'measure') {
+      hideProbeTag();
+      return;
+    }
+    const width = els.stage.clientWidth;
+    const height = els.stage.clientHeight;
+    uiProjectVector.set(SKIN.x + state.probe.u, SKIN.top + 1.35, SKIN.z + state.probe.v);
+    uiProjectVector.project(camera);
+    if (uiProjectVector.z > 1 || uiProjectVector.z < -1) {
+      hideProbeTag();
+      return;
+    }
+    const screenX = (uiProjectVector.x * 0.5 + 0.5) * width;
+    const screenY = (-uiProjectVector.y * 0.5 + 0.5) * height;
+    const tagWidth = els.probeTag.offsetWidth || 225;
+    let left;
+    let top;
+    let flipped = true;
+    if (width < 620) {
+      // On portrait screens the tag becomes a compact readout in the upper-left,
+      // so it never covers the lesion under the probe.
+      left = 12;
+      top = 58;
+      els.probeTag.classList.add('is-detached');
+    } else {
+      els.probeTag.classList.remove('is-detached');
+      left = screenX - tagWidth - 28;
+      if (left < 12) {
+        left = screenX + 28;
+        flipped = false;
+      }
+      left = clamp(left, 10, Math.max(10, width - tagWidth - 10));
+      top = clamp(screenY - 62, 88, height - 132);
+    }
+    els.probeTag.style.transform = `translate(${left}px, ${top}px)`;
+    els.probeTag.classList.toggle('is-flipped', flipped);
+    if (!probeTagVisible) {
+      probeTagVisible = true;
+      els.probeTag.classList.add('is-visible');
+    }
+  }
+
+  function updateCable() {
+    if (!probe || !device) return;
+    cableFrame++;
+    const cap = new THREE.Vector3(0, 8.16, 0);
+    probe.localToWorld(cap);
+    const isMeasure = state.workspace === 'measure';
+    const port = new THREE.Vector3(2.35, 0.82, 1.35);
+    if (isMeasure) {
+      port.set(SKIN.x + CABLE_DOCK.x, 0.032 + CABLE_DOCK.y, SKIN.z + CABLE_DOCK.z);
+    } else {
+      device.localToWorld(port);
+    }
+    if (lastCableCap && lastCablePort && lastCableMode === isMeasure
+      && cap.distanceToSquared(lastCableCap) < 0.0012
+      && port.distanceToSquared(lastCablePort) < 0.0012) return;
+    lastCableCap = cap.clone();
+    lastCablePort = port.clone();
+    lastCableMode = isMeasure;
+
+    let points;
+    if (isMeasure) {
+      points = [
+        port,
+        port.clone().add(new THREE.Vector3(0.7, -0.2, -0.2)),
+        new THREE.Vector3(SKIN.x - 0.9, 0.17, SKIN.z - 4.7),
+        new THREE.Vector3(SKIN.x + state.probe.u + 0.7, 1.6, SKIN.z + state.probe.v - 2.2),
+        new THREE.Vector3(SKIN.x + state.probe.u + 0.15, 5.0, SKIN.z + state.probe.v - 0.9),
+        cap
+      ];
+    } else {
+      points = [
+        port,
+        port.clone().add(new THREE.Vector3(-0.3, -0.5, 0.55)),
+        cap.clone().add(new THREE.Vector3(1.35, 0.08, 0.65)),
+        cap
+      ];
+    }
+    const curve = new THREE.CatmullRomCurve3(points);
+    const geometry = new THREE.TubeGeometry(curve, 48, 0.042, 6, false);
+    if (cableMesh) {
+      cableMesh.geometry.dispose();
+      cableMesh.geometry = geometry;
+    } else {
+      cableMesh = new THREE.Mesh(geometry, std(0x9c4a39, { roughness: 0.72, metalness: 0.04 }));
+      cableMesh.castShadow = true;
+      scene.add(cableMesh);
+    }
+  }
+
+  function updateProbeAndCable(dt) {
+    if (!probe || !device) return;
+    if (state.workspace === 'measure') {
+      probeGoalPos.set(SKIN.x + state.probe.u, SKIN.top + 0.008, SKIN.z + state.probe.v);
+      probeGoalQuat.identity();
+    } else {
+      probeDockAnchor.getWorldPosition(probeGoalPos);
+      probeDockAnchor.getWorldQuaternion(probeGoalQuat);
+    }
+    const damping = 1 - Math.pow(0.00008, dt);
+    probe.position.lerp(probeGoalPos, damping);
+    probe.quaternion.slerp(probeGoalQuat, damping);
+    updateCable();
+  }
+
+  function updateEffects(time) {
+    if (!currentGroup) return;
+    const closeEnough = state.workspace === 'measure'
+      && probe.position.distanceTo(probeGoalPos) < 0.22
+      && state.contact > 60;
+    currentGroup.visible = closeEnough;
+    if (!closeEnough) return;
+    currentGroup.position.set(probe.position.x, 0, probe.position.z);
+    contactRings.forEach((ring, i) => {
+      const s = 1 + Math.sin(time * 2.7 + i * 0.85) * 0.13;
+      ring.scale.setScalar(s);
+      ring.material.opacity = 0.55 + Math.sin(time * 3.2 + i) * 0.2;
+    });
+    currentParticles.forEach((particle, i) => {
+      const t = (time * 0.26 + particle.userData.offset) % 1;
+      const point = particle.userData.curve.getPoint(t);
+      particle.position.copy(point);
+      particle.material.opacity = 0.35 + Math.sin(t * Math.PI) * 0.55;
+    });
+    if (lesionGlow) {
+      lesionGlow.material.opacity = 0.15 + Math.sin(time * 2) * 0.06;
+    }
+    if (skinMarker) {
+      skinMarker.material.opacity = 0.12 + Math.sin(time * 1.6) * 0.04;
+    }
+  }
+
+  function animate3D() {
+    requestAnimationFrame(animate3D);
+    if (!renderer || !scene || !camera) return;
+    const dt = Math.min(0.05, clock.getDelta());
+    const time = clock.elapsedTime;
+    updateCamera(dt);
+    if (skinRoot) skinRoot.visible = state.workspace === 'measure';
+    if (skinLesionLabel) skinLesionLabel.visible = state.workspace === 'measure' && state.coverage < 0.28;
+
+    // lid animation
+    const lidTarget = (state.caseMode === 'open') ? -1.72 : 0;
+    lidPivot.rotation.x = lerp(lidPivot.rotation.x, lidTarget, 1 - Math.pow(0.0003, dt));
+    if (device) device.visible = state.workspace !== 'measure';
+
+    // shell transparency
+    const targetOpacity = state.caseMode === 'xray' ? 0.14 : state.caseMode === 'bare' ? 0 : 1;
+    const shellBase = (shellMat.userData && shellMat.userData.baseOpacity) || 1;
+    const currentOpacity = shellMat.opacity / shellBase;
+    const nextOpacity = lerp(currentOpacity, targetOpacity, 1 - Math.pow(0.0009, dt));
+    const shouldBeTransparent = nextOpacity < 0.985;
+    shellFadeMats.forEach((material) => {
+      if (material.opacity !== undefined) {
+        const base = (material.userData && material.userData.baseOpacity !== undefined) ? material.userData.baseOpacity : 1;
+        material.opacity = nextOpacity * base;
+        material.transparent = shouldBeTransparent || (material.userData && material.userData.forceTransparent === true);
+        material.depthWrite = nextOpacity > 0.9;
+        material.needsUpdate = true;
+      }
+    });
+    const shellVisible = nextOpacity > 0.015;
+    shellGroups.forEach((group) => { group.visible = shellVisible; });
+    if (strapGroup) {
+      strapGroup.visible = state.caseMode !== 'bare';
+      const strapOpacity = state.caseMode === 'bare' ? 0 : 1;
+      strapGroup.traverse((object) => {
+        if (object.isMesh && object.material) {
+          object.material.transparent = strapOpacity < 1;
+          object.material.opacity = lerp(object.material.opacity, strapOpacity, 1 - Math.pow(0.001, dt));
+        }
+      });
+    }
+
+    // parts visibility for clean picking in x-ray
+    if (state.caseMode === 'bare') {
+      if (selectionBox && state.selected === 'case') clearSelection3D();
+    }
+
+    if (probe) probe.visible = true;
+    updateProbeAndCable(dt);
+    updateEffects(time);
+    updateProbeTag();
+    updateSelectionBox(time);
+    updateLabelVisibility3D();
+    renderer.render(scene, camera);
+  }
+
+  function resize3D() {
+    if (!renderer || !camera) return;
+    const width = els.stage.clientWidth;
+    const height = els.stage.clientHeight;
+    if (!width || !height) return;
+    renderer.setSize(width, height, false);
+    updateCameraTransform();
+  }
+
+  function init3D() {
+    if (typeof THREE === 'undefined') {
+      els.stage.classList.add('has-error');
+      return false;
+    }
+    try {
+      renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, powerPreference: 'high-performance' });
+      renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+      renderer.setSize(els.stage.clientWidth || 800, els.stage.clientHeight || 600, false);
+      renderer.outputEncoding = THREE.sRGBEncoding;
+      renderer.toneMapping = THREE.ACESFilmicToneMapping;
+      renderer.toneMappingExposure = 0.86;
+      renderer.shadowMap.enabled = true;
+      renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+      renderer.domElement.style.position = 'absolute';
+      renderer.domElement.style.inset = '0';
+      renderer.domElement.style.zIndex = '0';
+      els.stage.prepend(renderer.domElement);
+    } catch (error) {
+      console.error(error);
+      els.stage.classList.add('has-error');
+      return false;
+    }
+
+    buildScene();
+    shellFadeMats.forEach((material) => {
+      if (!material.userData) material.userData = {};
+      if (material.userData.baseOpacity === undefined) material.userData.baseOpacity = material.opacity;
+      material.userData.forceTransparent = material.transparent;
+    });
+    applyWorkspaceCamera('device', true);
+    bind3DControls();
+    updateLabelVisibility3D();
+    resizeObserver = new ResizeObserver(resize3D);
+    resizeObserver.observe(els.stage);
+    resize3D();
+    updateCable();
+    animate3D();
+    return true;
+  }
+
+  // =====================================================================
+  //  9. KHỞI TẠO
+  // =====================================================================
+  const ready3D = init3D();
+  initChart();
+  updateTelemetry();
+  updatePresetState();
+  updateResultCard();
+  bindUiEvents();
+  setWorkspace('device', { instant: true });
+  setCaseMode(state.caseMode);
+  if (!ready3D) {
+    showToast('Không khởi tạo được WebGL — phần mô phỏng 3D không khả dụng.', 'warn');
+  }
+})();
+</script>
+</body>
+</html>
